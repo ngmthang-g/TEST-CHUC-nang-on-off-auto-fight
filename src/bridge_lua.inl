@@ -70,21 +70,14 @@ bool LuaManagerInstance(Il2CppClass* manager, Il2CppObject*& instance, wchar_t* 
 
 bool ExecuteLuaNoArg(Il2CppClass* manager, const char* scriptName, const char* functionName,
                      wchar_t* detail, std::size_t cap) {
-    const MethodInfo* exec2 = FindMethod(manager, "ExecuteFunction", 2);
-    if (exec2 && (!ParamType(exec2, 0, "System.String") || !ParamType(exec2, 1, "System.String"))) {
-        exec2 = nullptr;
-    }
+    const char* exec2Types[] = {"System.String", "System.String"};
+    const char* exec3Types[] = {"System.String", "System.String", "System.Object[]"};
 
-    const MethodInfo* exec3 = FindMethod(manager, "ExecuteFunction", 3);
-    if (exec3 && (!ParamType(exec3, 0, "System.String") ||
-                  !ParamType(exec3, 1, "System.String") ||
-                  !ParamType(exec3, 2, "System.Object[]"))) {
-        exec3 = nullptr;
-    }
-
+    const MethodInfo* exec2 = FindMethodExact(manager, "ExecuteFunction", exec2Types, 2);
+    const MethodInfo* exec3 = FindMethodExact(manager, "ExecuteFunction", exec3Types, 3);
     const MethodInfo* exec = exec3 ? exec3 : exec2;
     if (!exec) {
-        SetText(detail, cap, L"ExecuteFunction signature chưa hỗ trợ; cần metadata hẹp");
+        AppendExecuteFunctionSignatures(manager, detail, cap);
         return false;
     }
 
@@ -123,7 +116,9 @@ bool ExecuteLuaNoArg(Il2CppClass* manager, const char* scriptName, const char* f
         return false;
     }
 
-    SetText(detail, cap, L"Lua wrapper returned: TopIcon.");
+    SetText(detail, cap, exec3 ? L"ExecuteFunction exact 3-param matched; "
+                               : L"ExecuteFunction exact 2-param matched; ");
+    Append(detail, cap, L"Lua wrapper returned: TopIcon.");
     Append(detail, cap, functionName[4] == 'T' ? L"AutoTrainClick" : L"AutoStopClick");
     Append(detail, cap, L"; runtime effect phải xác nhận trong game");
     return true;
