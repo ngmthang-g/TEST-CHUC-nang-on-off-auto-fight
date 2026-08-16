@@ -3,60 +3,28 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace cleanroute {
+namespace autofighttest {
 
-constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-constexpr std::uint32_t kProtocolVersion = 0x00010100u;
+constexpr std::uint32_t kMagic = 0x54464154u; // TAFT
+constexpr std::uint32_t kProtocolVersion = 0x00020000u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongAutoFightTest_";
 
 enum class Command : std::uint32_t {
     None = 0,
-    ReadState = 1,
-    ToggleRide = 2,
-    StartPath = 3,
-    StopPath = 4,
-    StartAutoFight = 5,
-    StopAutoFight = 6,
-};
-
-enum SnapshotValid : std::uint32_t {
-    ValidMapTransition = 1u << 0,
-    ValidIdentity      = 1u << 1,
-    ValidMap           = 1u << 2,
-    ValidPosition      = 1u << 3,
-    ValidRiding        = 1u << 4,
-    ValidMoving        = 1u << 5,
-    ValidAutoPath      = 1u << 6,
-};
-
-struct Snapshot {
-    std::uint32_t validMask = 0;
-    std::uint32_t sequence = 0;
-    std::int32_t roleID = 0;
-    std::int32_t mapID = 0;
-    std::int32_t x = 0;
-    std::int32_t y = 0;
-    std::int32_t riding = 0;
-    std::int32_t moving = 0;
-    std::int32_t autoPathing = 0;
-    std::int32_t mapReady = 0;
-    std::int32_t waitingChangeMap = 0;
-    wchar_t characterName[64]{};
+    StartAutoFight = 1,
+    StopAutoFight = 2,
+    Probe = 3,
 };
 
 struct Request {
     std::uint32_t command = 0;
-    std::int32_t arg0 = 0;
-    std::int32_t arg1 = 0;
-    std::int32_t arg2 = 0;
 };
 
 struct Response {
     std::int32_t ok = 0;
     std::int32_t errorCode = 0;
     std::uint32_t callbackThreadId = 0;
-    Snapshot snapshot{};
     wchar_t detail[512]{};
 };
 
@@ -78,4 +46,4 @@ inline void MappingName(DWORD pid, wchar_t* output, std::size_t count) {
     wsprintfW(output, L"%s%lu", kMappingPrefix, static_cast<unsigned long>(pid));
 }
 
-} // namespace cleanroute
+} // namespace autofighttest
