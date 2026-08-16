@@ -24,32 +24,30 @@ Prove a minimal reliable way to turn built-in Thần Long AutoFight Train mode O
 
 ### v0.1.1 correction
 - Replaced argc-only `ExecuteFunction` lookup with full overload enumeration via `il2cpp_class_get_methods` + `il2cpp_method_get_name`.
-- Exact matching now checks name + argc + each IL2CPP parameter type.
+- Exact matching checks name + argc + every IL2CPP parameter type.
 - The tool still only invokes known intended shapes:
   - `(System.String,System.String)`
   - `(System.String,System.String,System.Object[])`
 - If neither exists, v0.1.1 returns the exact live `ExecuteFunction overloads: ...` list and does not guess arguments.
-- Protocol bumped to `0x00020100` to prevent mixing v0.1.0 and v0.1.1 EXE/DLL files.
+- Protocol is `0x00020100` so v0.1.0 and v0.1.1 EXE/DLL files cannot silently mix.
 
-### Prior build / CI confirmed
-- v0.1.0 `BUILD PASS` / `CI PASS` on run `31935017087`.
-- Scope audit PASS; inherited route FSM `8/8 PASS`; bridge PE validation PASS; EXE/DLL artifact PASS.
-
-### Current v0.1.1 build / CI
-- Source committed to `main`.
-- GitHub Actions build is required before distributing v0.1.1.
+### v0.1.1 build / CI confirmed
+- `BUILD PASS` / `CI PASS` on GitHub Actions run `31937194750` for head `3a90b6ca7e69e08d610491ae70231ceaf92ec1e6`.
+- Build/audit step PASS.
+- Artifact upload PASS.
+- Artifact: `ThanLong-AutoFight-Test-v0.1.1`, ID `9261010029`, size `117381` bytes.
+- Artifact digest: `sha256:3faa3b25be998c3aa65830228affc89a8efc095a84f3bacf158b93d7715dab12`.
 - Runtime AutoFight ON/OFF remains `UNTESTED` for v0.1.1.
 
 ### Open bugs / risks
 - `BUG-001`: mutable Lua action still uses inherited hook callback context instead of canonical `MainThread.Execute(System.Action)`; not yet reached/tested by v0.1.0 due BUG-002 failing first.
-- `BUG-002`: v0.1.0 adapter mismatch confirmed; v0.1.1 is the exact-overload fix candidate.
+- `BUG-002`: v0.1.0 adapter mismatch confirmed; v0.1.1 is the exact-overload runtime fix candidate.
 
 ### Current priorities
-1. Obtain v0.1.1 CI PASS artifact.
-2. Run Probe, then ON once.
-3. If ON returns exact 2/3-param match, observe actual game behavior.
-4. If ON still fails, preserve the full `ExecuteFunction overloads: ...` line.
-5. Only investigate MainThread/thread safety after a compatible method is actually invoked.
+1. Run v0.1.1 Probe, then ON once.
+2. If ON reports `ExecuteFunction exact 2-param matched` or `exact 3-param matched`, observe actual game behavior and test OFF.
+3. If ON still fails, preserve the full `ExecuteFunction overloads: ...` line.
+4. Only investigate MainThread/thread safety after a compatible method is actually invoked.
 
 ## Architecture
 
