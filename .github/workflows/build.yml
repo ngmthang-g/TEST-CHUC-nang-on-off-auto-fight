@@ -25,8 +25,8 @@ jobs:
       - name: Upload test binaries
         uses: actions/upload-artifact@v4
         with:
-          name: ThanLong-AutoFight-Test-v0.1.1
+          name: ThanLong-AutoFight-Test-v0.1.2
           path: |
-            dist/ThanLongAutoFightTest_v0.1.1.exe
+            dist/ThanLongAutoFightTest_v0.1.2.exe
             dist/ThanLongAutoFightTestBridge.dll
           if-no-files-found: error
