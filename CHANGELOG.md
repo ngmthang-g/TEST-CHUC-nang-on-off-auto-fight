@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## [v0.1.1] - 2026-08-16
+
+### Triggering runtime evidence
+- User test: `Bridge probe PASS; chưa gửi AutoFight action`.
+- User test: `ON FAIL: ExecuteFunction signature chưa hỗ trợ; cần metadata hẹp`.
+- Conclusion: bridge Probe path works; AutoFight ON failed before Lua invocation at the `ExecuteFunction` resolver boundary.
+
+### Changed / Fixed
+- Replaced argc-only `il2cpp_class_get_method_from_name` selection for `ExecuteFunction` with full overload enumeration using `il2cpp_class_get_methods` and `il2cpp_method_get_name`.
+- Added exact method matching by name + parameter count + every IL2CPP parameter type.
+- Preserved fail-closed invocation policy: only `(String,String)` and `(String,String,Object[])` are invoked automatically.
+- Added runtime metadata dump of every `ExecuteFunction` overload when neither supported shape exists.
+- Bumped shared protocol to `0x00020100` so v0.1.0 EXE/DLL cannot be mixed with v0.1.1.
+- Updated EXE/resource/artifact identity to v0.1.1.
+
+### Runtime status
+- v0.1.0 Bridge Probe: `PASS`.
+- v0.1.0 AutoFight ON: `FAIL before Lua invoke`.
+- v0.1.1 AutoFight ON/OFF: `RUNTIME UNTESTED`.
+- No known-good AutoFight version yet.
+
+### Next test
+- If log reports `ExecuteFunction exact 2-param matched` or `exact 3-param matched`, verify actual ON/OFF behavior in game.
+- If it reports `ExecuteFunction overloads: ...`, preserve the full line; that is the exact metadata required for the next narrow correction.
+- Only investigate MainThread/thread context after a compatible `ExecuteFunction` method is actually invoked.
+
 ## [v0.1.0] - 2026-08-16
 
 ### Requested
@@ -18,39 +44,14 @@
 - Added project knowledge/history/feature/bug/decision/evidence documentation.
 - Fixed Windows CI scope-audit UTF-8 handling by reading source with explicit `-Encoding UTF8`.
 
-### Removed / Reverted
-- Route/spot controls are no longer exposed in the AutoFight test UI.
-- No visual mouse-click AutoFight path was added.
-
-### Files / Modules
-- Modified: `src/protocol.h`, `src/controller.cpp`, `src/bridge.cpp`, `resources/app.rc`, `build.cmd`.
-- Added: `src/controller_support.inl`, `src/bridge_runtime.inl`, `src/bridge_lua.inl`, `.github/workflows/build.yml`, `AI_INDEX.md`, `PROJECT_KNOWLEDGE.md`, protocol/rule files and `docs/` knowledge tree.
-
 ### Build
-- Local route-logic regression test: `8/8 PASS` using host `g++`.
-- Initial Windows CI: `CI FAILED` — run `31934886448`, commit `b8dc4fc4475dc0fe9a42fc9d7513b9fa6c1cda9d`.
-- Initial failure cause: PowerShell scope audit decoded the UTF-8 Vietnamese controller text incorrectly and reported `Controller missing BẬT AUTO FIGHT`; the failure occurred before C++ build.
-- Correction: `build.cmd` now uses explicit UTF-8 reads in the audit.
-- Final Windows build: `BUILD PASS`.
-- Final CI: `CI PASS` — run `31935017087`, source/build commit `4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0`.
-- Scope audit: PASS.
-- Route FSM regression: `8/8 PASS`.
-- Bridge artifact validation: `BRIDGE PE DLL PASS`, characteristics `0x2022`.
-- Controller EXE build: PASS.
-- Artifact upload: PASS — `ThanLong-AutoFight-Test-v0.1.0`, artifact ID `9260424827`, digest `sha256:f716e2a33eba0a9eea7cc889b9ab19d3f4ea4c1c10db19856a732f1167223598`.
+- Initial Windows CI failed only in UTF-8 scope audit before C++ compilation.
+- Corrected Windows build/CI PASS: run `31935017087`, source/build commit `4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0`.
+- Scope audit PASS; route FSM regression `8/8 PASS`; bridge PE DLL validation PASS; controller EXE PASS.
+- Artifact: `ThanLong-AutoFight-Test-v0.1.0`, artifact ID `9260424827`.
 
-### Runtime
-- Status: `RUNTIME UNTESTED`.
-- Confirmed working: none yet for AutoFight v0.1.0.
-- Awaiting test: actual Train ON, actual Train OFF, crash/disconnect/no-op behavior.
-- CI/build success must not be promoted to runtime success.
-
-### Regression / Known-Good / Related Bugs
-- Last known-good AutoFight test: `UNKNOWN`.
-- `BUG-001`, `BUG-002` remain open implementation risks until runtime evidence.
-
-### Next Version Notes
-- Run the built artifact on the live client before changing the semantic action path.
-- If runtime fails, collect the exact bridge log first.
-- Fix only the narrow `ExecuteFunction` signature/manager/thread boundary indicated by evidence.
-- Prefer migration to the canonical MainThread Action dispatcher rather than adding click emulation.
+### Runtime result
+- Bridge Probe: PASS.
+- AutoFight ON: FAIL before Lua action because the adapter returned `ExecuteFunction signature chưa hỗ trợ; cần metadata hẹp`.
+- This does not disprove the verified semantic AutoFight start/stop contract.
+- MainThread/thread-context safety was not reached by this test because signature resolution failed first.
