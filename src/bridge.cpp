@@ -2,6 +2,10 @@
 #include "bridge_lua.inl"
 
 bool SetAutoFight(bool enabled, wchar_t* detail, std::size_t cap) {
+    // v0.1.1's exact overload dumper remains compiled as a preserved diagnostic/evidence tool.
+    // v0.1.2 no longer uses it for the action path after live metadata proved String,Object[].
+    (void)&AppendExecuteFunctionSignatures;
+
     Il2CppClass* gameApi = nullptr;
     Il2CppClass* session = nullptr;
     Il2CppClass* guiApi = nullptr;
