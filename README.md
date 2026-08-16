@@ -1,0 +1,1 @@
+# TEST-CHUC-nang-on-off-auto-fight
