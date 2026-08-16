@@ -12,7 +12,7 @@ using namespace autofighttest;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long AutoFight Test v0.1.0";
+constexpr wchar_t kTitle[] = L"Thần Long AutoFight Test v0.1.1";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr wchar_t kBridgeDll[] = L"ThanLongAutoFightTestBridge.dll";
 
