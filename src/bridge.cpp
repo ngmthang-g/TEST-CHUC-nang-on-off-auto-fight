@@ -4,14 +4,15 @@
 bool SetAutoFight(bool enabled, wchar_t* detail, std::size_t cap) {
     Il2CppClass* gameApi = nullptr;
     Il2CppClass* session = nullptr;
-    Il2CppClass* luaManager = nullptr;
-    if (!ResolveCore(gameApi, session, luaManager, detail, cap)) return false;
+    Il2CppClass* guiApi = nullptr;
+    if (!ResolveCore(gameApi, session, guiApi, detail, cap)) return false;
     if (!SafeForAction(gameApi, session, detail, cap)) return false;
 
-    // VERIFIED shipped semantic wrappers from the DATA knowledge base:
-    // TopIcon:AutoTrainClick() -> AutoFight_Main:StartAutoFight(C_AutoModel.Train)
-    // TopIcon:AutoStopClick()  -> AutoFight_Main:StartAutoFight(C_AutoModel.None)
-    return ExecuteLuaNoArg(luaManager, "TopIcon", enabled ? "AutoTrainClick" : "AutoStopClick", detail, cap);
+    // VERIFIED lower-level semantic entry from the client Lua and donor history:
+    // AutoFight_Main:StartAutoFight(C_AutoModel.Train=1)
+    // AutoFight_Main:StartAutoFight(C_AutoModel.None=0)
+    // v0.1.2 intentionally bypasses TopIcon wrappers because they depend on UI/self context.
+    return ExecuteAutoFightMain(gameApi, guiApi, enabled ? 1 : 0, detail, cap);
 }
 
 bool EnsureShared() {
