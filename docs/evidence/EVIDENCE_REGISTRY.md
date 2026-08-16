@@ -56,3 +56,35 @@ Supports: `BUILD PASS` and `CI PASS` for the v0.1.0 test source at commit `4b50e
 Does NOT Prove: AutoFight actually turns ON/OFF in the live client, or that the current hook callback thread is a safe production mutation context.
 Confidence: CONFIRMED.
 Limitations: GitHub CI cannot execute the private/live game runtime and therefore cannot establish `RUNTIME PASS` or `KNOWN-GOOD`.
+
+## EVID-006 — v0.1.0 live bridge probe PASS / AutoFight adapter FAIL before action invoke
+Type: USER RUNTIME LOG
+Date / Version: 2026-08-16 / v0.1.0
+Source: user live-client test.
+Observation:
+- `Bridge probe PASS; chưa gửi AutoFight action`
+- `ON FAIL: ExecuteFunction signature chưa hỗ trợ; cần metadata hẹp`
+Supports:
+- controller -> shared memory -> injected hook callback -> in-process request handling works for the non-mutating Probe path;
+- AutoFight ON reached the Lua adapter and failed at signature resolution;
+- no evidence that `TopIcon.AutoTrainClick` was invoked in this attempt.
+Does NOT Prove:
+- that the hook callback thread is safe for mutable Lua execution;
+- that the semantic AutoFight contract is wrong;
+- that Train mode can or cannot turn on.
+Confidence: CONFIRMED.
+Limitations: v0.1.0 did not print the actual overload list, so exact parameter types remained unknown from this log alone.
+
+## EVID-007 — v0.1.1 narrow resolver correction
+Type: SOURCE / DIAGNOSTIC DESIGN
+Date / Version: 2026-08-16 / v0.1.1
+Source: test repo source after runtime feedback.
+Observation:
+- adds `il2cpp_class_get_methods` + `il2cpp_method_get_name` resolution;
+- searches every `ExecuteFunction` overload by exact name, parameter count and parameter type;
+- still only invokes the two previously intended safe shapes: `(System.String,System.String)` and `(System.String,System.String,System.Object[])`;
+- if neither exists, returns the live overload list in `ExecuteFunction overloads: ...` rather than guessing a new payload.
+Supports: v0.1.1 directly addresses the argc-only overload-selection weakness while preserving fail-closed behavior.
+Does NOT Prove: runtime success until user retests v0.1.1.
+Confidence: CONFIRMED for source change; RUNTIME UNVERIFIED.
+Limitations: if the true client signature is a different shape, another narrow adapter version will still be required using the new exact log.
