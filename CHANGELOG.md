@@ -15,6 +15,13 @@
 - Bumped shared protocol to `0x00020100` so v0.1.0 EXE/DLL cannot be mixed with v0.1.1.
 - Updated EXE/resource/artifact identity to v0.1.1.
 
+### Build / CI
+- `BUILD PASS` / `CI PASS`: run `31937194750`, head `3a90b6ca7e69e08d610491ae70231ceaf92ec1e6`.
+- Build and audit PASS.
+- Artifact upload PASS.
+- Artifact: `ThanLong-AutoFight-Test-v0.1.1`, ID `9261010029`, size `117381` bytes.
+- Artifact digest: `sha256:3faa3b25be998c3aa65830228affc89a8efc095a84f3bacf158b93d7715dab12`.
+
 ### Runtime status
 - v0.1.0 Bridge Probe: `PASS`.
 - v0.1.0 AutoFight ON: `FAIL before Lua invoke`.
