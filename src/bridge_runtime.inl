@@ -62,6 +62,18 @@ void Append(wchar_t* out, std::size_t cap, const wchar_t* text) {
     out[n] = 0;
 }
 
+void AppendAscii(wchar_t* out, std::size_t cap, const char* text) {
+    if (!out || !text || cap == 0) return;
+    std::size_t n = 0;
+    while (n + 1 < cap && out[n]) ++n;
+    std::size_t i = 0;
+    while (n + 1 < cap && text[i]) {
+        const unsigned char ch = static_cast<unsigned char>(text[i++]);
+        out[n++] = static_cast<wchar_t>(ch);
+    }
+    out[n] = 0;
+}
+
 struct Api {
     HMODULE module = nullptr;
     Il2CppDomain* (__cdecl* domain_get)() = nullptr;
@@ -70,6 +82,8 @@ struct Api {
     Il2CppClass* (__cdecl* class_from_name)(const Il2CppImage*, const char*, const char*) = nullptr;
     Il2CppClass* (__cdecl* class_get_parent)(Il2CppClass*) = nullptr;
     const MethodInfo* (__cdecl* class_get_method_from_name)(Il2CppClass*, const char*, int) = nullptr;
+    const MethodInfo* (__cdecl* class_get_methods)(Il2CppClass*, void**) = nullptr;
+    const char* (__cdecl* method_get_name)(const MethodInfo*) = nullptr;
     FieldInfo* (__cdecl* class_get_field_from_name)(Il2CppClass*, const char*) = nullptr;
     std::uint32_t (__cdecl* field_get_flags)(FieldInfo*) = nullptr;
     void (__cdecl* field_static_get_value)(FieldInfo*, void*) = nullptr;
@@ -103,6 +117,8 @@ struct Api {
         NEED(class_from_name);
         NEED(class_get_parent);
         NEED(class_get_method_from_name);
+        NEED(class_get_methods);
+        NEED(method_get_name);
         NEED(class_get_field_from_name);
         NEED(field_static_get_value);
         NEED(method_get_flags);
@@ -160,6 +176,65 @@ bool ParamType(const MethodInfo* method, std::uint32_t index, const char* expect
     const bool ok = Eq(name, expected);
     g_api.free_fn(name);
     return ok;
+}
+
+const MethodInfo* FindMethodExact(Il2CppClass* klass, const char* name,
+                                  const char* const* paramTypes, std::uint32_t count) {
+    if (!klass || !name || !g_api.class_get_methods || !g_api.method_get_name) return nullptr;
+    for (Il2CppClass* c = klass; c; c = g_api.class_get_parent(c)) {
+        void* iter = nullptr;
+        while (const MethodInfo* method = g_api.class_get_methods(c, &iter)) {
+            const char* methodName = g_api.method_get_name(method);
+            if (!Eq(methodName, name) || g_api.method_get_param_count(method) != count) continue;
+            bool match = true;
+            for (std::uint32_t i = 0; i < count; ++i) {
+                if (!ParamType(method, i, paramTypes[i])) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return method;
+        }
+    }
+    return nullptr;
+}
+
+void AppendExecuteFunctionSignatures(Il2CppClass* klass, wchar_t* detail, std::size_t cap) {
+    SetText(detail, cap, L"ExecuteFunction overloads: ");
+    std::uint32_t shown = 0;
+    for (Il2CppClass* c = klass; c && shown < 8; c = g_api.class_get_parent(c)) {
+        void* iter = nullptr;
+        while (shown < 8) {
+            const MethodInfo* method = g_api.class_get_methods(c, &iter);
+            if (!method) break;
+            const char* methodName = g_api.method_get_name(method);
+            if (!Eq(methodName, "ExecuteFunction")) continue;
+            if (shown > 0) Append(detail, cap, L" | ");
+            Append(detail, cap, StaticMethod(method) ? L"static(" : L"inst(");
+            const std::uint32_t count = g_api.method_get_param_count(method);
+            for (std::uint32_t i = 0; i < count; ++i) {
+                if (i > 0) Append(detail, cap, L",");
+                const Il2CppType* type = g_api.method_get_param(method, i);
+                char* typeName = type ? g_api.type_get_name(type) : nullptr;
+                if (typeName) {
+                    AppendAscii(detail, cap, typeName);
+                    g_api.free_fn(typeName);
+                } else {
+                    Append(detail, cap, L"?");
+                }
+            }
+            Append(detail, cap, L")");
+            const Il2CppType* returnType = g_api.method_get_return_type(method);
+            char* returnName = returnType ? g_api.type_get_name(returnType) : nullptr;
+            if (returnName) {
+                Append(detail, cap, L"->");
+                AppendAscii(detail, cap, returnName);
+                g_api.free_fn(returnName);
+            }
+            ++shown;
+        }
+    }
+    if (shown == 0) Append(detail, cap, L"NONE");
 }
 
 bool InvokeBool(const MethodInfo* method, void* instance, bool& out, wchar_t* detail, std::size_t cap) {
