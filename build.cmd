@@ -10,10 +10,10 @@ echo [1/7] AutoFight test scope audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop'; $files=(Get-ChildItem 'src' -Recurse -File | Where-Object {$_.Extension -in '.cpp','.h','.inl'} | Select-Object -ExpandProperty FullName); $s=($files|%%{Get-Content $_ -Raw -Encoding UTF8}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','UIButton','HandleClickEvent','InvokeRevive','DauThai','Đầu thai','ClickInternalConfirm','MessageBoxVisible','ClickNPC','RequestSellItem','RequestUsingSkill','SelectTarget','SendInput','mouse_event','SetCursorPos'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden unrelated/visual-action token: '+$x)}};" ^
-  "$bridge=(Get-Content 'src/bridge.cpp','src/bridge_runtime.inl','src/bridge_lua.inl' -Raw -Encoding UTF8) -join [Environment]::NewLine; foreach($x in @('LuaSystemManager','ExecuteFunction','TopIcon','AutoTrainClick','AutoStopClick','SetAutoFight','class_get_methods','method_get_name','FindMethodExact','AppendExecuteFunctionSignatures')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing AutoFight semantic/metadata token '+$x)}};" ^
-  "$proto=Get-Content 'src/protocol.h' -Raw -Encoding UTF8; foreach($x in @('StartAutoFight = 1','StopAutoFight = 2','Probe = 3')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
-  "$ctl=Get-Content 'src/controller.cpp' -Raw -Encoding UTF8; foreach($x in @('BẬT AUTO FIGHT','TẮT AUTO FIGHT','Command::StartAutoFight','Command::StopAutoFight')){if($ctl -notmatch [regex]::Escape($x)){throw ('Controller missing '+$x)}};" ^
-  "Write-Host 'AUTOFIGHT TEST AUDIT PASS: semantic Lua wrapper + exact metadata overload resolver; no mouse macro/combat reconstruction.'"
+  "$bridge=(Get-Content 'src/bridge.cpp','src/bridge_runtime.inl','src/bridge_lua.inl' -Raw -Encoding UTF8) -join [Environment]::NewLine; foreach($x in @('LuaSystemAPI_GUI','AutoFight_Main','StartAutoFight','ProveUnityMainThread','UnitySynchronizationContext','MonoBehaviourExecutor','ExecuteUiObject','FindMethodExact','gchandle_new','value_box')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing AutoFight semantic/main-thread/donor token '+$x)}};" ^
+  "$proto=Get-Content 'src/protocol.h' -Raw -Encoding UTF8; foreach($x in @('0x00020200','StartAutoFight = 1','StopAutoFight = 2','Probe = 3')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
+  "$ctl=Get-Content 'src/controller.cpp' -Raw -Encoding UTF8; foreach($x in @('v0.1.2','BẬT AUTO FIGHT','TẮT AUTO FIGHT','Command::StartAutoFight','Command::StopAutoFight')){if($ctl -notmatch [regex]::Escape($x)){throw ('Controller missing '+$x)}};" ^
+  "Write-Host 'AUTOFIGHT TEST AUDIT PASS: direct AutoFight_Main.StartAutoFight service path; Unity-main-thread and frozen-donor guards; no mouse macro.'"
 if errorlevel 1 exit /b 1
 
 echo [2/7] Baseline route FSM regression self-test...
@@ -43,8 +43,8 @@ echo [6/7] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongAutoFightTest_v0.1.1.exe
+  -o dist\ThanLongAutoFightTest_v0.1.2.exe
 if errorlevel 1 exit /b 1
 
 echo [7/7] Done.
-echo BUILD THANH CONG - AUTOFIGHT TEST v0.1.1
+echo BUILD THANH CONG - AUTOFIGHT TEST v0.1.2
