@@ -6,7 +6,7 @@
 namespace autofighttest {
 
 constexpr std::uint32_t kMagic = 0x54464154u; // TAFT
-constexpr std::uint32_t kProtocolVersion = 0x00020100u;
+constexpr std::uint32_t kProtocolVersion = 0x00020200u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongAutoFightTest_";
 
