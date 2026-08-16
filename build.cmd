@@ -8,11 +8,11 @@ del /q dist\* >nul 2>nul
 
 echo [1/7] AutoFight test scope audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ErrorActionPreference='Stop'; $files=(Get-ChildItem 'src' -Recurse -File | Where-Object {$_.Extension -in '.cpp','.h','.inl'} | Select-Object -ExpandProperty FullName); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
+  "$ErrorActionPreference='Stop'; $files=(Get-ChildItem 'src' -Recurse -File | Where-Object {$_.Extension -in '.cpp','.h','.inl'} | Select-Object -ExpandProperty FullName); $s=($files|%%{Get-Content $_ -Raw -Encoding UTF8}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','UIButton','HandleClickEvent','InvokeRevive','DauThai','Đầu thai','ClickInternalConfirm','MessageBoxVisible','ClickNPC','RequestSellItem','RequestUsingSkill','SelectTarget','SendInput','mouse_event','SetCursorPos'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden unrelated/visual-action token: '+$x)}};" ^
-  "$bridge=(Get-Content 'src/bridge.cpp','src/bridge_runtime.inl','src/bridge_lua.inl' -Raw) -join [Environment]::NewLine; foreach($x in @('LuaSystemManager','ExecuteFunction','TopIcon','AutoTrainClick','AutoStopClick','SetAutoFight')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing AutoFight semantic token '+$x)}};" ^
-  "$proto=Get-Content 'src/protocol.h' -Raw; foreach($x in @('StartAutoFight = 1','StopAutoFight = 2','Probe = 3')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
-  "$ctl=Get-Content 'src/controller.cpp' -Raw; foreach($x in @('BẬT AUTO FIGHT','TẮT AUTO FIGHT','Command::StartAutoFight','Command::StopAutoFight')){if($ctl -notmatch [regex]::Escape($x)){throw ('Controller missing '+$x)}};" ^
+  "$bridge=(Get-Content 'src/bridge.cpp','src/bridge_runtime.inl','src/bridge_lua.inl' -Raw -Encoding UTF8) -join [Environment]::NewLine; foreach($x in @('LuaSystemManager','ExecuteFunction','TopIcon','AutoTrainClick','AutoStopClick','SetAutoFight')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing AutoFight semantic token '+$x)}};" ^
+  "$proto=Get-Content 'src/protocol.h' -Raw -Encoding UTF8; foreach($x in @('StartAutoFight = 1','StopAutoFight = 2','Probe = 3')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
+  "$ctl=Get-Content 'src/controller.cpp' -Raw -Encoding UTF8; foreach($x in @('BẬT AUTO FIGHT','TẮT AUTO FIGHT','Command::StartAutoFight','Command::StopAutoFight')){if($ctl -notmatch [regex]::Escape($x)){throw ('Controller missing '+$x)}};" ^
   "Write-Host 'AUTOFIGHT TEST AUDIT PASS: semantic Lua wrapper only; no mouse macro/combat reconstruction.'"
 if errorlevel 1 exit /b 1
 
