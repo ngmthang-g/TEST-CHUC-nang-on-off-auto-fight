@@ -88,3 +88,19 @@ Supports: v0.1.1 directly addresses the argc-only overload-selection weakness wh
 Does NOT Prove: runtime success until user retests v0.1.1.
 Confidence: CONFIRMED for source change; RUNTIME UNVERIFIED.
 Limitations: if the true client signature is a different shape, another narrow adapter version will still be required using the new exact log.
+
+## EVID-008 — v0.1.1 Windows CI/build/artifact PASS
+Type: CI / BUILD
+Date / Version: 2026-08-16 / v0.1.1
+Source: GitHub Actions run `31937194750`, head `3a90b6ca7e69e08d610491ae70231ceaf92ec1e6`.
+Observation:
+- workflow job completed with conclusion `success`;
+- Build and audit PASS;
+- Upload test binaries PASS;
+- artifact `ThanLong-AutoFight-Test-v0.1.1` uploaded successfully;
+- artifact ID `9261010029`, size `117381` bytes;
+- artifact digest `sha256:3faa3b25be998c3aa65830228affc89a8efc095a84f3bacf158b93d7715dab12`.
+Supports: v0.1.1 source compiles and packages successfully with the exact-overload resolver and diagnostic path.
+Does NOT Prove: live AutoFight ON/OFF runtime behavior.
+Confidence: CONFIRMED for CI/build; RUNTIME UNVERIFIED.
+Limitations: live-client validation is still required.
