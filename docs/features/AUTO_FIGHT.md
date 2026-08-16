@@ -24,6 +24,13 @@ button OFF
 
 A successful bridge return means only that the selected invocation returned without a captured managed exception. It does **not** prove the game entered/exited Train mode.
 
+## Current Build Status
+`BUILD PASS / CI PASS`.
+
+- Passing run: `31935017087`
+- Passing source/build commit: `4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0`
+- Artifact: `ThanLong-AutoFight-Test-v0.1.0`, ID `9260424827`
+
 ## Current Known-Good
 `UNKNOWN`.
 
@@ -38,13 +45,14 @@ A successful bridge return means only that the selected invocation returned with
 ### v0.1.0
 - request: isolate AutoFight ON/OFF test.
 - implementation: TopIcon semantic Lua wrappers through experimental ExecuteFunction adapter.
-- build: pending CI initially.
+- build: first CI failed at UTF-8 audit before compile; audit fixed; corrected CI/build PASS.
 - runtime: untested.
-- result: pending user live test.
+- result: binary artifact ready for live-client test; runtime result pending.
 
 ## Failed / Reverted Approaches
 - Visual `Đánh quái` tab click as start command: rejected because it is configuration UI, not the semantic Train start.
 - Cached/stale `UIButton.HandleClickEvent`: rejected for this feature.
+- Initial CI audit without explicit UTF-8 decoding: failed; corrected in `build.cmd`.
 
 ## Important APIs / Timing / Constants
 ```text
@@ -71,7 +79,7 @@ No fixed delay is considered success proof.
 - Best read-only runtime proof for active AutoFight mode.
 
 ## Next Diagnostic Step
-Run v0.1.0 on the frozen client and record:
+Run the CI-built v0.1.0 artifact on the frozen client and record:
 ```text
 ON button result
 OFF button result

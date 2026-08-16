@@ -17,7 +17,15 @@ Prove a minimal reliable way to turn built-in Thần Long AutoFight Train mode O
 ## Current State
 
 ### Runtime-confirmed working
-- `UNKNOWN` for this new AutoFight test repo.
+- `UNKNOWN` for this new AutoFight test repo. No live-client runtime result has been reported yet.
+
+### Build / CI confirmed
+- `BUILD PASS` / `CI PASS` on GitHub Actions run `31935017087` for commit `4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0`.
+- AutoFight scope audit PASS.
+- Inherited route FSM regression test `8/8 PASS`.
+- `ThanLongAutoFightTestBridge.dll` compiled and passed PE DLL validation.
+- `ThanLongAutoFightTest_v0.1.0.exe` compiled successfully.
+- Artifact `ThanLong-AutoFight-Test-v0.1.0` was uploaded successfully as artifact ID `9260424827`.
 
 ### Built but runtime-untested
 - Protocol commands `StartAutoFight` and `StopAutoFight`.
@@ -37,11 +45,11 @@ Prove a minimal reliable way to turn built-in Thần Long AutoFight Train mode O
 - `BUG-002`: exact live compatibility of the chosen `ExecuteFunction` overload is unverified.
 
 ### Current priorities
-1. CI/build pass.
-2. Run ON test on live client.
-3. Run OFF test on live client.
-4. Record user runtime evidence immediately.
-5. If no-op/crash/disconnect, inspect only the narrow bridge/signature/thread boundary.
+1. Run ON test on the live client.
+2. Run OFF test on the live client.
+3. Record the exact tool log plus visible in-game behavior.
+4. Update runtime evidence immediately after the test.
+5. If no-op/crash/disconnect occurs, inspect only the narrow bridge/signature/thread boundary before changing architecture.
 
 ## Architecture
 
@@ -98,6 +106,8 @@ Resolver
 - `TopIcon.AutoTrainClick()` is the shipped zero-argument Train start wrapper.
 - `TopIcon.AutoStopClick()` is the shipped zero-argument stop wrapper.
 - `LuaSystemManager` exposes `ExecuteFunction` in reference metadata/source analysis.
+- The initial Windows CI failure was an audit encoding problem, not a C++ AutoFight compile failure: PowerShell read UTF-8 Vietnamese UI text without explicit UTF-8 decoding.
+- Correction commit `4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0` changed audit reads to `Get-Content -Encoding UTF8`; the subsequent CI passed.
 
 ## Important IDs / APIs / Data Sources
 - `FGStudio.LuaSystem.LuaSystemManager`
@@ -114,6 +124,10 @@ No AutoFight settings are modified by this test. The built-in game AutoFight con
 - GitHub Actions: `windows-latest`
 - Zig: 0.14.1
 - local build entry: `build.cmd`
+- Passing CI run: `31935017087`
+- Passing source/build commit: `4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0`
+- Build artifact: `ThanLong-AutoFight-Test-v0.1.0`, artifact ID `9260424827`
+- Artifact digest: `sha256:f716e2a33eba0a9eea7cc889b9ab19d3f4ea4c1c10db19856a732f1167223598`
 
 ## Open Questions
 - Exact runtime overload selected for `ExecuteFunction`.

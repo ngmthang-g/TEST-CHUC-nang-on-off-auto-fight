@@ -50,6 +50,11 @@ External invocation mechanics are only `LIKELY / UNKNOWN` until live runtime pro
 - Calls `TopIcon.AutoTrainClick` / `TopIcon.AutoStopClick`.
 - Refuses action during map transition via a narrow safety guard.
 
+### CI correction
+- First CI failed before C++ build because the PowerShell scope audit read UTF-8 Vietnamese controller text using the wrong/default decoding.
+- `build.cmd` was corrected to use `Get-Content -Encoding UTF8` for the audit.
+- The corrected source then passed the complete Windows/Zig build and artifact upload.
+
 ## F. Important Implementation Details
 ```text
 Start wrapper: TopIcon.AutoTrainClick
@@ -85,13 +90,32 @@ Added:
 
 ## H. Build / CI History
 ```text
-Initial Build: NOT BUILT locally for Windows (Zig unavailable in local worker)
+Initial local Windows build: NOT BUILT (Zig unavailable in local worker)
 Local independent test: route_logic_test 8/8 PASS with g++
-Final Build: PENDING GitHub Actions
-CI: PENDING
-Run: 31934886448 queued at knowledge-write time
+
+First GitHub CI:
+Status: CI FAILED
+Run: 31934886448
 Commit: b8dc4fc4475dc0fe9a42fc9d7513b9fa6c1cda9d
-Artifact: PENDING
+Failure point: AutoFight scope audit
+Cause: PowerShell source decoding did not explicitly use UTF-8; Vietnamese UI string was not matched
+C++ compile reached: NO
+
+Correction:
+Commit: 4b50eadbaf2cb6ab6d0552a4d6d362aa51f72be0
+Change: audit Get-Content calls use -Encoding UTF8
+
+Final Build: BUILD PASS
+CI: CI PASS
+Run: 31935017087
+Scope audit: PASS
+Route FSM regression: 8/8 PASS
+Bridge PE DLL validation: PASS, characteristics=0x2022
+Controller EXE: PASS
+Artifact upload: PASS
+Artifact: ThanLong-AutoFight-Test-v0.1.0
+Artifact ID: 9260424827
+Artifact digest: sha256:f716e2a33eba0a9eea7cc889b9ab19d3f4ea4c1c10db19856a732f1167223598
 ```
 
 ## I. Runtime Result
@@ -103,7 +127,20 @@ Awaiting Test: Train ON, Train OFF, stability
 ```
 
 ## J. Regression / Revert / Failed Attempts
-No runtime attempt recorded yet.
+### Failed CI attempt — audit encoding
+```text
+Approach: initial Windows CI build
+Goal: validate AutoFight source and build artifacts
+Result: CI FAILED before compilation
+Failure Mode: UTF-8 Vietnamese UI text misread by PowerShell audit
+Evidence: run 31934886448
+Correction: explicit -Encoding UTF8
+Corrected Result: CI PASS in run 31935017087
+Lesson: keep source audit encoding explicit when matching Vietnamese literals
+Can Retry: N/A; corrected
+```
+
+No AutoFight runtime attempt has been recorded yet.
 
 ## K. Known-Good Established
 None. Do not mark known-good before live evidence.
@@ -113,9 +150,13 @@ None. Do not mark known-good before live evidence.
 - `BUG-002`: live `ExecuteFunction` overload/instance compatibility unproven.
 - `DEC-001`: use shipped semantic wrapper, not visual tab click.
 - `DEC-002`: DATA repo remains read-only.
+- `EVID-004`: initial CI failure and root cause.
+- `EVID-005`: corrected CI/build/artifact PASS.
 
 ## M. Handoff
-If v0.1.0 fails:
+The build is complete; the next evidence must come from the live client.
+
+If v0.1.0 runtime fails:
 1. preserve exact tool log and whether the client crashed/disconnected/no-op;
 2. if signature error, inspect only `LuaSystemManager.ExecuteFunction` metadata signature;
 3. if managed/Lua exception, resolve script lifetime/current method name narrowly;
