@@ -5,40 +5,73 @@
 Status: OPEN
 Severity: High for production; acceptable only as explicit experiment
 First Observed: v0.1.0 design review
-Last Tested: v0.1.0 bridge probe only; mutable Lua action was not reached because BUG-002 failed first
+Last Tested: v0.1.2 BUILD/CI only; live v0.1.2 mutation not yet tested
 Last Known-Good: UNKNOWN
 First Confirmed-Bad: UNKNOWN
 Related Feature / REQ: AUTO_FIGHT / REQ-002
-Known Evidence: DATA KB states mutable production actions should use valid `System.Action -> MainThread.Execute`. User runtime evidence confirms the inherited bridge callback can execute the non-mutating Probe command, but does not establish mutable Lua safety.
-Unknowns: whether the inherited WH_GETMESSAGE callback context is safe for this exact Lua wrapper.
-Root Cause: architecture gap, not yet a demonstrated runtime fault.
-Attempts: v0.1.0 intentionally reuses inherited bridge only for narrow proof.
-Current Workaround: test one action at a time and fail closed during map transition.
+Known Evidence:
+- DATA KB verifies `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)` enqueues and Unity `Update()` drains/invokes actions.
+- DATA/current-tool research verifies the WH_GETMESSAGE window-thread callback can be proven as the Unity managed main thread using `UnitySynchronizationContext` and managed thread IDs.
+- v0.1.2 implements that Unity-main-thread proof before direct semantic AutoFight mutation.
+Unknowns:
+- whether executing `MonoBehaviourExecutor.ExecuteUiObject` directly inside the WH_GETMESSAGE callback is re-entrancy/lifecycle safe for repeated production use;
+- whether v0.1.2 produces the intended live Train/None state without disconnect/crash/no-op.
+Root Cause: architecture gap: correct thread identity is not the same as the preferred normal-Update action boundary.
+Attempts:
+- v0.1.0/v0.1.1: mutation was never reached because the ExecuteFunction adapter failed first.
+- v0.1.2: prove Unity managed main-thread identity, then perform one narrow direct service action with frozen-donor guards.
+Current Workaround: v0.1.2 is test-only; one action at a time; fail closed on map transition/client mismatch/thread proof failure.
 Fixed In: UNKNOWN
 Runtime Verified In: UNKNOWN
-Next Diagnostic Step: first resolve BUG-002. Only diagnose thread boundary if a matched ExecuteFunction call reaches invocation and then crashes/disconnects/no-ops.
-Do-Not-Do: do not substitute mouse macros or `CreateRemoteThread` gameplay worker.
+Next Diagnostic Step: live-test v0.1.2 ON once and OFF once. If semantic action is correct but unstable/re-entrant, move the same semantic service action behind a legitimate `System.Action -> MainThread.Execute` boundary.
+Do-Not-Do: do not substitute mouse macros, stale UIButton pointers or `CreateRemoteThread` gameplay workers.
 
-## BUG-002 — v0.1.0 ExecuteFunction overload resolver rejected the live client signature
+## BUG-002 — v0.1.0/v0.1.1 ExecuteFunction adapter assumptions did not match the live client
 
-Status: FIX CANDIDATE IN v0.1.1; RUNTIME UNVERIFIED
+Status: CHARACTERIZED / SUPERSEDED FOR AUTOFIGHT IN v0.1.2
 Severity: Medium
 First Observed: v0.1.0 implementation
-First Runtime Confirmed: 2026-08-16 user test
-Last Tested: v0.1.0
-Last Known-Good: UNKNOWN
+First Runtime Confirmed: 2026-08-16
+Last Tested: v0.1.1
+Last Known-Good: NONE
 First Confirmed-Bad: v0.1.0
 Related Feature / REQ: AUTO_FIGHT / REQ-002
 Known Evidence:
-- User runtime log: `Bridge probe PASS; chưa gửi AutoFight action`.
-- User runtime log: `ON FAIL: ExecuteFunction signature chưa hỗ trợ; cần metadata hẹp`.
-- Therefore bridge attach/callback/protocol reached the in-process adapter, but no AutoFight mutable Lua call was issued.
-Root Cause: v0.1.0 used `il2cpp_class_get_method_from_name(name, argc)` and then validated only the single returned method. This is insufficient when multiple overloads share the same parameter count; it can select a different overload and reject it even if a supported overload also exists. The exact live overload set is still runtime-dependent until v0.1.1 reports/matches it.
+- v0.1.0: `Bridge probe PASS; chưa gửi AutoFight action`.
+- v0.1.0 ON: `ExecuteFunction signature chưa hỗ trợ; cần metadata hẹp`.
+- v0.1.1 live metadata dump:
+  - `static(MoonSharp.Interpreter.Closure,System.Object[])->MoonSharp.Interpreter.DynValue`
+  - `static(System.String,System.Object[])->MoonSharp.Interpreter.DynValue`
+Root Cause:
+- v0.1.0 assumed `(String,String)` / `(String,String,Object[])` shapes and used argc-oriented lookup.
+- v0.1.1 corrected method enumeration and proved that neither assumed shape exists in the live client.
+- The actual string overload is `(System.String,System.Object[])`, but using it for `TopIcon:AutoTrainClick()` would still leave the Lua `self`/UI-context problem.
 Attempts:
-- v0.1.0: supported only `(String,String)` and `(String,String,Object[])` after argc-based lookup -> runtime FAIL before invoke.
-- v0.1.1: enumerate all methods with `il2cpp_class_get_methods`, match name + exact parameter types, and dump all `ExecuteFunction` signatures if neither known form matches.
-Current Workaround: use v0.1.1 only; do not retry v0.1.0.
-Fixed In: v0.1.1 candidate
+- v0.1.0: fail before invoke.
+- v0.1.1: exact overload enumeration + metadata dump; correctly failed closed and produced exact signatures.
+Resolution:
+- Preserve the exact overload information as verified metadata.
+- AutoFight v0.1.2 bypasses `LuaSystemManager.ExecuteFunction` and targets the lower-level persistent service `AutoFight_Main.StartAutoFight(1/0)` instead.
+Fixed In: not fixed as a generic ExecuteFunction adapter; superseded for AutoFight by v0.1.2
+Runtime Verified In: exact overload discovery verified in v0.1.1; v0.1.2 AutoFight effect still UNKNOWN
+Next Diagnostic Step: no further ExecuteFunction reverse work is required for the current AutoFight task unless the direct service path later proves unusable.
+Do-Not-Do: do not broad reverse the client and do not guess Lua self/argument conventions.
+
+## BUG-003 — Frozen MonoBehaviourExecutor donor RVAs are client-build specific
+
+Status: GUARDED RISK
+Severity: Medium
+First Observed: v0.1.2 implementation
+Last Tested: v0.1.2 BUILD/CI PASS
+Last Known-Good: UNKNOWN runtime
+Related Feature / REQ: AUTO_FIGHT / REQ-002
+Known Evidence: prior v0.9.0 donor source for this frozen client used `MonoBehaviourExecutorGetInstance` RVA `0x523CE0`, `MonoBehaviourExecutorExecuteUiObject` RVA `0x521B20`, and IL2CPP Object[] data offset `0x20`.
+Risk: these are fixed-snapshot implementation locators, not universal API contracts.
+Mitigation in v0.1.2:
+- require PE TimeDateStamp `0x6A410C14`;
+- require SizeOfImage `0x03DCB000`;
+- require exact byte signatures at both donor RVAs before calling them;
+- fail closed on mismatch.
+Fixed In: not applicable; deliberate guarded donor dependency for this frozen-client experiment
 Runtime Verified In: UNKNOWN
-Next Diagnostic Step: run v0.1.1. If it matches a supported overload, observe ON/OFF behavior. If it still fails, preserve the full `ExecuteFunction overloads: ...` log, which is now the exact narrow metadata needed for the next adapter correction.
-Do-Not-Do: do not broad reverse the entire client and do not guess arbitrary overload payloads.
+Next Diagnostic Step: if v0.1.2 reports client/donor mismatch, inspect only the exact executor metadata/native locator for that client build rather than removing the guard.
