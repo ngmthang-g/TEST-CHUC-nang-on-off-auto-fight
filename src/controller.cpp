@@ -71,7 +71,7 @@ private:
         applyFont(status_);
 
         log_ = Make(L"EDIT",
-                    L"v0.1.0 EXPERIMENTAL — TopIcon.AutoTrainClick / AutoStopClick.\\r\\n",
+                    L"v0.1.1 — exact ExecuteFunction overload resolver + metadata signature dump.\\r\\n",
                     WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
                     18, 270, 647, 80, IDC_LOG);
         applyFont(log_);
