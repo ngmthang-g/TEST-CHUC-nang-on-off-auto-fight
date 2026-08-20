@@ -5,36 +5,13 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   windows-x64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Materialize v0.6.2 source patch
-        shell: pwsh
-        run: |
-          python -c "from pathlib import Path; Path('v062.patch').write_bytes(b''.join(x.read_bytes() for x in sorted(Path('ci/v0.6.2').glob('patch.part*'))))"
-          git apply --check v062.patch
-          git apply v062.patch
       - name: Verify v0.6.2 counter-test scope
         run: python tools/verify_v062_logic.py
-      - name: Persist full v0.6.2 source on branch
-        if: github.event_name == 'push' && github.ref_name == 'codex/auto-dungeon-v0.6.2-counter-test'
-        shell: pwsh
-        run: |
-          Copy-Item ci\v0.6.2\final-build.yml .github\workflows\build.yml -Force
-          Remove-Item v062.patch -Force
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- .github/workflows/build.yml BUILD_STATUS.md CHANGELOG.md CMakeLists.txt PROJECT_KNOWLEDGE.md README.md SOURCE_PROVENANCE.md TOOL_LOGIC_TABLE.html VERSION.txt docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md features/AUTO_DUNGEON.md resources/app.rc src/controller.cpp src/dungeon_app_methods.inl src/dungeon_logic.h src/dungeon_logic_test.cpp tools/verify_v062_logic.py
-          git rm --ignore-unmatch tools/verify_v061_logic.py
-          git rm -r --ignore-unmatch ci/v0.6.2
-          git diff --cached --stat
-          git commit -m "Materialize full v0.6.2 source [skip ci]"
-          git push origin HEAD:codex/auto-dungeon-v0.6.2-counter-test
       - name: Configure x64
         run: cmake -S . -B build -A x64
       - name: Build Release
