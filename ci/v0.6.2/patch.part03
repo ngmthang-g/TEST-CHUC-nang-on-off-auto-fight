@@ -1,0 +1,112 @@
+ngeonActiveProfile_{};
+     int dungeonProfileIndex_ = 0;
+diff --git a/src/dungeon_app_methods.inl b/src/dungeon_app_methods.inl
+index 36d1fc8..c8dd9f4 100644
+--- a/src/dungeon_app_methods.inl
++++ b/src/dungeon_app_methods.inl
+@@ -260,11 +260,16 @@
+         dungeonStageRadius_ = DungeonMake(L"EDIT", L"0", WS_BORDER | ES_NUMBER | ES_CENTER, 547, 394, 58, 23, IDC_DG_STAGE_RADIUS);
+         DungeonMake(L"STATIC", L"Timeout giây:", SS_LEFT | SS_CENTERIMAGE, 615, 394, 82, 23, 0);
+         dungeonStageTimeout_ = DungeonMake(L"EDIT", L"900", WS_BORDER | ES_NUMBER | ES_CENTER, 699, 394, 58, 23, IDC_DG_STAGE_TIMEOUT);
+-        DungeonMake(L"STATIC", L"Mỗi bước chỉ PASS khi đủ death event; timeout luôn là LỖI, không phải thành công.",
+-                    SS_LEFT | SS_CENTERIMAGE, 18, 421, 935, 20, 0);
++        dungeonCounterBig_ = DungeonMake(L"STATIC", L"ĐÃ GIẾT: 0 / 40",
++                                         SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 18, 421, 285, 42, IDC_DG_COUNTER_BIG);
++        dungeonCounterStats_ = DungeonMake(L"STATIC", L"Đã theo dõi sống: 0 • Vừa chết: 0 • Tổng kill: 0",
++                                           SS_LEFT | SS_CENTERIMAGE | WS_BORDER, 311, 421, 360, 42, IDC_DG_COUNTER_STATS);
++        dungeonCounterToggle_ = DungeonMake(L"BUTTON", L"BẬT TEST BỘ ĐẾM", BS_PUSHBUTTON,
++                                            679, 421, 154, 42, IDC_DG_COUNTER_TOGGLE);
++        DungeonMake(L"BUTTON", L"RESET BỘ ĐẾM", BS_PUSHBUTTON, 841, 421, 112, 42, IDC_DG_COUNTER_RESET);
+ 
+         dungeonScanList_ = DungeonMake(WC_LISTVIEWW, L"", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER,
+-                                       18, 445, 935, 145, IDC_DG_SCAN_LIST);
++                                       18, 469, 935, 134, IDC_DG_SCAN_LIST);
+         ListView_SetExtendedListViewStyle(dungeonScanList_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+         DungeonListColumn(dungeonScanList_, 0, 150, L"Tên");
+         DungeonListColumn(dungeonScanList_, 1, 80, L"RoleID động");
+@@ -274,13 +279,13 @@
+         DungeonListColumn(dungeonScanList_, 5, 80, L"X,Y");
+         DungeonListColumn(dungeonScanList_, 6, 245, L"Class / Type / Proof HP");
+         DungeonListColumn(dungeonScanList_, 7, 130, L"Cờ dữ liệu");
+-        DungeonMake(L"BUTTON", L"QUÉT MONSTER / HP", BS_PUSHBUTTON, 18, 596, 160, 27, IDC_DG_SCAN_NOW);
+-        DungeonMake(L"BUTTON", L"THÊM MONSTER ĐÃ CHỌN VÀO BỘ ĐẾM", BS_PUSHBUTTON, 186, 596, 300, 27, IDC_DG_SCAN_ADD_RULE);
+-        DungeonMake(L"STATIC", L"Chỉ nhận class GMonster; GRole/người, NPC, Pet, Object bị loại trước bộ đếm.",
+-                    SS_LEFT | SS_CENTERIMAGE, 495, 596, 458, 27, 0);
++        DungeonMake(L"BUTTON", L"QUÉT MONSTER / HP", BS_PUSHBUTTON, 18, 609, 160, 27, IDC_DG_SCAN_NOW);
++        DungeonMake(L"BUTTON", L"THÊM MONSTER ĐÃ CHỌN VÀO BỘ ĐẾM", BS_PUSHBUTTON, 186, 609, 300, 27, IDC_DG_SCAN_ADD_RULE);
++        DungeonMake(L"STATIC", L"Chỉ nhận class GMonster • TEST bước đang chọn • quét 500ms • sống → HP=0.",
++                    SS_LEFT | SS_CENTERIMAGE, 495, 609, 458, 27, 0);
+ 
+         dungeonRuleList_ = DungeonMake(WC_LISTVIEWW, L"", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER,
+-                                       18, 630, 935, 130, IDC_DG_RULE_LIST);
++                                       18, 643, 935, 117, IDC_DG_RULE_LIST);
+         ListView_SetExtendedListViewStyle(dungeonRuleList_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES |
+                                                                LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
+         DungeonListColumn(dungeonRuleList_, 0, 230, L"Tên quái lưu");
+@@ -470,6 +475,7 @@
+         RefreshDungeonProfileCombo();
+         LoadDungeonProfileToUi();
+         if (dungeonStatus_) SetText(dungeonStatus_, L"AUTO PHÓ BẢN: " + dungeonRuntime_.status);
++        RefreshDungeonCounterUi();
+     }
+ 
+     void SaveDungeonProfileHeader() {
+@@ -516,8 +522,8 @@
+ 
+     void DeleteDungeonProfile() {
+         if (dungeonProfiles_.empty()) return;
+-        if (dungeonRuntime_.running) {
+-            MessageBoxW(hwnd_, L"Hãy dừng AUTO PHÓ BẢN trước khi xóa bất kỳ hồ sơ nào để không làm lệch profile index runtime.", kTitle, MB_OK | MB_ICONWARNING);
++        if (dungeonRuntime_.running || dungeonCounterTest_.running) {
++            MessageBoxW(hwnd_, L"Hãy dừng AUTO PHÓ BẢN/TEST BỘ ĐẾM trước khi xóa hồ sơ để không làm lệch profile runtime.", kTitle, MB_OK | MB_ICONWARNING);
+             return;
+         }
+         if (MessageBoxW(hwnd_, L"Xóa hồ sơ phó bản đang chọn?", kTitle,
+@@ -531,6 +537,7 @@
+     }
+ 
+     void SelectDungeonProfile() {
++        if (dungeonCounterTest_.running) StopDungeonCounterTest(L"đổi hồ sơ test");
+         const int selected = static_cast<int>(SendMessageW(dungeonProfileCombo_, CB_GETCURSEL, 0, 0));
+         if (selected < 0 || selected >= static_cast<int>(dungeonProfiles_.size())) return;
+         dungeonProfileIndex_ = selected;
+@@ -653,6 +660,203 @@
+         return account.bridge.Call(Command::ScanNearbyMonsters, 0, 0, 0, response, error, 1800);
+     }
+ 
++    static const wchar_t* DungeonCountReasonText(CountSkipReason reason) {
++        switch (reason) {
++            case CountSkipReason::WrongGroup: return L"sai nhóm/bộ lọc";
++            case CountSkipReason::OutsideRadius: return L"ngoài bán kính";
++            case CountSkipReason::NotSeenAlive: return L"chưa thấy sống";
++            case CountSkipReason::RoleIdChanged: return L"đổi RoleID";
++        }
++        return L"không rõ";
++    }
++
++    int SelectedDungeonStageIndex() const {
++        if (!dungeonStageList_) return 0;
++        const int row = ListView_GetNextItem(dungeonStageList_, -1, LVNI_SELECTED);
++        return row < 0 ? 0 : row;
++    }
++
++    void RefreshDungeonCounterUi() {
++        int kills = dungeonCounterTest_.kills;
++        int target = std::max(1, dungeonCounterTest_.targetKills);
++        int justDied = dungeonCounterTest_.justDied;
++        std::size_t seenAlive = dungeonCounterTest_.seenAlive;
++        int totalKills = dungeonCounterTest_.kills;
++        if (dungeonRuntime_.running && dungeonRuntime_.stageIndex >= 0 &&
++            dungeonRuntime_.stageIndex < static_cast<int>(dungeonActiveProfile_.stages.size())) {
++            const DungeonStage& stage = dungeonActiveProfile_.stages[static_cast<std::size_t>(dungeonRuntime_.stageIndex)];
++            kills = dungeonRuntime_.stageKills;
++            target = std::max(1, stage.requiredKills);
++            justDied = dungeonRuntime_.justDied;
++            seenAlive = dungeonRuntime_.deathTracker.SeenAliveLives();
++            totalKills = dungeonRuntime_.totalKills;
++        }
++        if (dungeonCounterBig_)
++            SetText(dungeonCounterBig_, L"ĐÃ GIẾT: " + std::to_wstring(kills) + L" / " + std::to_wstring(target));
++        if (dungeonCounterStats_)
++            SetText(dungeonCounterStats_, L"Đã theo dõi sống: " + std::to_wstring(seenAlive) +
++                                          

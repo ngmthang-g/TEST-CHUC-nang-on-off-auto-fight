@@ -1,0 +1,87 @@
+ặc", true, false}},
+                            rules, L"THUONG").empty());
+     assert(tracker.TrackedLives() == 0); // class proof without live HP proof is still rejected
++
++    std::vector<CountDiagnostic> diagnostics;
++    tracker.Reset(92, 4);
++    (void)tracker.Observe({{40, 999, 100, 100, 0, 0, false, false, L"Đại Vương", true, true}},
++                          rules, L"THUONG", 0, 0, 0, &diagnostics);
++    assert(!diagnostics.empty() && diagnostics.back().reason == CountSkipReason::WrongGroup);
++    diagnostics.clear();
++    (void)tracker.Observe({{41, 501, 100, 100, 500, 500, false, true, L"Sơn Tặc", true, true}},
++                          rules, L"THUONG", 0, 0, 100, &diagnostics);
++    assert(!diagnostics.empty() && diagnostics.back().reason == CountSkipReason::OutsideRadius);
++    diagnostics.clear();
++    (void)tracker.Observe({{42, 501, 0, 100, 0, 0, true, false, L"Sơn Tặc", true, true}},
++                          rules, L"THUONG", 0, 0, 0, &diagnostics);
++    assert(!diagnostics.empty() && diagnostics.back().reason == CountSkipReason::NotSeenAlive);
++    diagnostics.clear();
++    (void)tracker.Observe({{43, 501, 100, 100, 0, 0, false, false, L"Sơn Tặc", true, true}},
++                          rules, L"THUONG");
++    assert(tracker.SeenAliveLives() == 1);
++    (void)tracker.Observe({{44, 501, 0, 100, 0, 0, true, false, L"Sơn Tặc", true, true}},
++                          rules, L"THUONG", 0, 0, 0, &diagnostics);
++    assert(!diagnostics.empty() && diagnostics.back().reason == CountSkipReason::RoleIdChanged);
++
+     assert(StageComplete(40, 40));
+     assert(!StageComplete(39, 40));
+     return 0;
+diff --git a/tools/verify_v061_logic.py b/tools/verify_v062_logic.py
+similarity index 80%
+rename from tools/verify_v061_logic.py
+rename to tools/verify_v062_logic.py
+index dd91af2..8622da0 100644
+--- a/tools/verify_v061_logic.py
++++ b/tools/verify_v062_logic.py
+@@ -40,6 +40,9 @@ required = {
+         "!life.countedDead",
+         "monster.hp == 0",
+         "first-seen",
++        "CountSkipReason",
++        "RoleIdChanged",
++        "SeenAliveLives",
+     ],
+     "src/dungeon_logic_test.cpp": [
+         "a player/GRole can never arm the monster counter",
+@@ -56,14 +59,21 @@ required = {
+         "WaitDungeonMap",
+         "StageComplete",
+         "Chỉ một trong hai tab được phép chạy",
++        "BẬT TEST BỘ ĐẾM",
++        "DỪNG TEST",
++        "RESET BỘ ĐẾM",
++        "ĐÃ GIẾT:",
++        "TickDungeonCounterTest",
++        "KHÔNG TÍNH",
++        "quét mỗi 500ms",
+     ],
+     "src/controller.cpp": [
+         'L"AUTO PHÓ BẢN"',
+         "TickDungeonAccount(a, now)",
+-        'L"Thần Long Item Consolidator v0.6.1',
++        'L"Thần Long Item Consolidator v0.6.2',
+     ],
+-    "CMakeLists.txt": ["VERSION 0.6.1", "dungeon_logic_tests"],
+-    ".github/workflows/build.yml": ["verify_v061_logic.py", "dungeon_logic_tests.exe"],
++    "CMakeLists.txt": ["VERSION 0.6.2", "dungeon_logic_tests"],
++    ".github/workflows/build.yml": ["verify_v062_logic.py", "dungeon_logic_tests.exe", "v0.6.2"],
+ }
+ 
+ errors: list[str] = []
+@@ -80,13 +90,13 @@ if "ContainsAscii(className" in bridge:
+ combined = "\n".join(text(name) for name in ["src/controller.cpp", "src/bridge.cpp"])
+ for forbidden in ["CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx"]:
+     if forbidden in combined:
+-        errors.append(f"active v0.6.1 source must not use {forbidden}")
++        errors.append(f"active v0.6.2 source must not use {forbidden}")
+ 
+ if errors:
+-    print("v0.6.1 verification FAILED")
++    print("v0.6.2 verification FAILED")
+     for error in errors:
+         print(" -", error)
+     sys.exit(1)
+ 
+-print("v0.6.1 strict monster contract PASS")
++print("v0.6.2 counter-test contract PASS")
+ print("NOTE: BUILD PASS is not RUNTIME PASS; live GMonster/HP/death proof remains mandatory.")

@@ -1,0 +1,126 @@
+L" • Vừa chết: " + std::to_wstring(justDied) +
++                                          L" • Tổng kill: " + std::to_wstring(totalKills));
++        if (dungeonCounterToggle_)
++            SetText(dungeonCounterToggle_, dungeonCounterTest_.running ? L"DỪNG TEST" : L"BẬT TEST BỘ ĐẾM");
++    }
++
++    void StopDungeonCounterTest(const std::wstring& reason) {
++        if (!dungeonCounterTest_.running) return;
++        Account* account = AccountByPid(dungeonCounterTest_.pid);
++        dungeonCounterTest_.running = false;
++        dungeonCounterTest_.justDied = 0;
++        RefreshDungeonCounterUi();
++        if (account) LogAccount(*account, L"TEST BỘ ĐẾM DỪNG • " + reason + L" • tổng kill " +
++                                         std::to_wstring(dungeonCounterTest_.kills));
++        SetDungeonRuntimeStatus(L"TEST BỘ ĐẾM đã dừng • " + reason);
++    }
++
++    void ResetDungeonCounterTest() {
++        const bool keepRunning = dungeonCounterTest_.running;
++        const DWORD pid = dungeonCounterTest_.pid;
++        const int profileIndex = dungeonCounterTest_.profileIndex;
++        const int stageIndex = dungeonCounterTest_.stageIndex;
++        const int targetKills = dungeonCounterTest_.targetKills;
++        DungeonStage stage = dungeonCounterTest_.stage;
++        std::vector<MonsterRule> rules = dungeonCounterTest_.rules;
++        dungeonCounterTest_ = DungeonCounterTestRuntime{};
++        dungeonCounterTest_.running = keepRunning;
++        dungeonCounterTest_.pid = pid;
++        dungeonCounterTest_.profileIndex = profileIndex;
++        dungeonCounterTest_.stageIndex = stageIndex;
++        dungeonCounterTest_.targetKills = std::max(1, targetKills);
++        dungeonCounterTest_.stage = std::move(stage);
++        dungeonCounterTest_.rules = std::move(rules);
++        dungeonCounterTest_.deathTracker.Reset(0, stageIndex);
++        RefreshDungeonCounterUi();
++        if (Account* account = AccountByPid(pid))
++            LogAccount(*account, L"RESET BỘ ĐẾM • kill=0 • xóa toàn bộ bằng chứng RoleID đã thấy sống.");
++    }
++
++    void ToggleDungeonCounterTest() {
++        if (dungeonCounterTest_.running) {
++            StopDungeonCounterTest(L"người dùng bấm DỪNG TEST");
++            return;
++        }
++        if (dungeonRuntime_.running) {
++            MessageBoxW(hwnd_, L"AUTO PHÓ BẢN đang chạy. Hãy dừng workflow trước khi bật TEST BỘ ĐẾM.",
++                        kTitle, MB_OK | MB_ICONWARNING);
++            return;
++        }
++        DungeonProfile* profile = CurrentDungeonProfile();
++        Account* account = SelectedDungeonAccount();
++        if (!profile || !account || profile->stages.empty()) {
++            MessageBoxW(hwnd_, L"Cần chọn acc, hồ sơ và ít nhất 1 bước/tọa để test bộ đếm.",
++                        kTitle, MB_OK | MB_ICONWARNING);
++            return;
++        }
++        const int stageIndex = std::clamp(SelectedDungeonStageIndex(), 0, static_cast<int>(profile->stages.size()) - 1);
++        const DungeonStage& stage = profile->stages[static_cast<std::size_t>(stageIndex)];
++        const bool hasRule = std::any_of(profile->rules.begin(), profile->rules.end(), [&](const MonsterRule& rule) {
++            return rule.enabled && EqualFolded(rule.group, stage.filterGroup) &&
++                   (rule.resID > 0 || !rule.name.empty());
++        });
++        if (!hasRule) {
++            MessageBoxW(hwnd_, (L"Bước đang chọn chưa có bộ lọc BẬT thuộc nhóm " + stage.filterGroup + L".").c_str(),
++                        kTitle, MB_OK | MB_ICONWARNING);
++            return;
++        }
++        std::wstring error;
++        if (!EnsureAttach(*account, error)) {
++            MessageBoxW(hwnd_, (L"Không attach được acc để test: " + error).c_str(), kTitle, MB_OK | MB_ICONERROR);
++            return;
++        }
++        dungeonCounterTest_ = DungeonCounterTestRuntime{};
++        dungeonCounterTest_.running = true;
++        dungeonCounterTest_.pid = account->game.pid;
++        dungeonCounterTest_.profileIndex = dungeonProfileIndex_;
++        dungeonCounterTest_.stageIndex = stageIndex;
++        dungeonCounterTest_.targetKills = std::max(1, stage.requiredKills);
++        dungeonCounterTest_.stage = stage;
++        dungeonCounterTest_.rules = profile->rules;
++        dungeonCounterTest_.deathTracker.Reset(0, stageIndex);
++        RefreshDungeonCounterUi();
++        SetDungeonRuntimeStatus(L"TEST BỘ ĐẾM ON • " + stage.name + L" • quét mỗi 500ms • 0/" +
++                                std::to_wstring(dungeonCounterTest_.targetKills));
++        LogAccount(*account, L"TEST BỘ ĐẾM BẬT • " + stage.name + L" • nhóm " + stage.filterGroup +
++                             L" • bán kính " + std::to_wstring(stage.countRadius) +
++                             L" • cần " + std::to_wstring(dungeonCounterTest_.targetKills));
++    }
++
++    void LogDungeonCounterDiagnostics(Account& account, const std::vector<CountDiagnostic>& diagnostics,
++                                      const std::wstring& stageName) {
++        for (const CountDiagnostic& diagnostic : diagnostics) {
++            const std::wstring key = std::to_wstring(static_cast<int>(diagnostic.reason)) + L":" +
++                                     std::to_wstring(diagnostic.roleID) + L":" + std::to_wstring(diagnostic.resID);
++            if (!dungeonCounterTest_.loggedDiagnostics.insert(key).second) continue;
++            LogAccount(account, L"KHÔNG TÍNH • " + std::wstring(DungeonCountReasonText(diagnostic.reason)) +
++                                L" • " + (diagnostic.name.empty() ? L"?" : diagnostic.name) +
++                                L" • RoleID " + std::to_wstring(diagnostic.roleID) +
++                                L" • ResID " + std::to_wstring(diagnostic.resID) +
++                                L" • bước " + stageName);
++        }
++    }
++
++    void TickDungeonCounterTest(DWORD now) {
++        if (!dungeonCounterTest_.running || dungeonRuntime_.running) return;
++        if (dungeonCounterTest_.lastScanTick != 0 && now - dungeonCounterTest_.lastScanTick < 500) return;
++        dungeonCounterTest_.lastScanTick = now;
++        Account* account = AccountByPid(dungeonCounterTest_.pid);
++        if (!account) {
++            StopDungeonCounterTest(L"acc test không còn trong danh sách");
++            return;
++        }
++        Response response{}; std::wstring error;
++        if (!ScanDungeonMonsters(*account, response, error)) {
++            SetDungeonRuntimeStatus(L"TEST BỘ ĐẾM • scanner lỗi: " + error);
++            LogAccount(*account, L"TEST BỘ ĐẾM scanner FAIL: " + error);
++            return;
++        }
++        RefreshDungeonScanList(response);
++        std::vector<MonsterObservation> observations;
++        observations.reserve(response.monsterCount);
++        for (std::uint32_t i = 0; i < response.monsterCount; ++i) {
++            const MonsterRecord& record = response.monsters[i];
++            MonsterObservation observation{};
++            observation.roleID = record.roleID;
++            observation.resID = record.r

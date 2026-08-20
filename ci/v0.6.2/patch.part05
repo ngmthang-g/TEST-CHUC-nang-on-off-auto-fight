@@ -1,0 +1,112 @@
+esID;
++            observation.hp = record.hp;
++            observation.maxHP = record.maxHP;
++            observation.x = record.x;
++            observation.y = record.y;
++            observation.dead = record.dead != 0;
++            observation.positionValid = (record.validMask & MonsterValidPosition) != 0;
++            observation.name = record.name;
++            observation.verifiedMonster = (record.validMask & MonsterValidClassProof) != 0;
++            observation.liveVitalsValid = (record.validMask & MonsterValidLiveVitals) != 0 &&
++                                          (record.validMask & MonsterValidVitals) != 0;
++            observations.push_back(std::move(observation));
++        }
++        std::vector<CountDiagnostic> diagnostics;
++        const std::vector<KillEvent> events = dungeonCounterTest_.deathTracker.Observe(
++            observations, dungeonCounterTest_.rules, dungeonCounterTest_.stage.filterGroup,
++            dungeonCounterTest_.stage.x, dungeonCounterTest_.stage.y, dungeonCounterTest_.stage.countRadius,
++            &diagnostics);
++        dungeonCounterTest_.justDied = static_cast<int>(events.size());
++        dungeonCounterTest_.kills += dungeonCounterTest_.justDied;
++        dungeonCounterTest_.seenAlive = dungeonCounterTest_.deathTracker.SeenAliveLives();
++        for (const KillEvent& event : events) {
++            LogAccount(*account, L"TEST KILL +1 • " + (event.name.empty() ? L"?" : event.name) +
++                                 L" • RoleID " + std::to_wstring(event.roleID) +
++                                 L" • ResID " + std::to_wstring(event.resID) +
++                                 L" • tổng " + std::to_wstring(dungeonCounterTest_.kills) + L"/" +
++                                 std::to_wstring(dungeonCounterTest_.targetKills));
++        }
++        LogDungeonCounterDiagnostics(*account, diagnostics, dungeonCounterTest_.stage.name);
++        RefreshDungeonCounterUi();
++        SetDungeonRuntimeStatus(L"TEST BỘ ĐẾM • " + dungeonCounterTest_.stage.name + L" • " +
++                                std::to_wstring(dungeonCounterTest_.kills) + L"/" +
++                                std::to_wstring(dungeonCounterTest_.targetKills) + L" • sống đã theo dõi " +
++                                std::to_wstring(dungeonCounterTest_.seenAlive) + L" • vừa chết " +
++                                std::to_wstring(dungeonCounterTest_.justDied));
++    }
++
+     void ManualDungeonScan() {
+         Account* account = SelectedDungeonAccount();
+         if (!account) { Log(L"[AUTO PHÓ BẢN] Chưa chọn acc để quét."); return; }
+@@ -812,6 +1016,7 @@
+         dungeonRuntime_.status = (failure ? L"LỖI • " : L"DỪNG • ") + reason;
+         if (dungeonStatus_) SetText(dungeonStatus_, L"AUTO PHÓ BẢN: " + dungeonRuntime_.status);
+         RefreshDungeonStageList();
++        RefreshDungeonCounterUi();
+     }
+ 
+     void FailDungeon(const std::wstring& reason) { StopDungeonInternal(reason, true); }
+@@ -840,6 +1045,7 @@
+             MessageBoxW(hwnd_, L"Hồ sơ chưa có CHUỖI VÀO. ClickNPC chỉ mở NPC; nếu dialog không tự vào map thì workflow sẽ timeout. Vẫn chạy?",
+                         kTitle, MB_YESNO | MB_ICONWARNING) != IDYES) return;
+ 
++        if (dungeonCounterTest_.running) StopDungeonCounterTest(L"chuyển sang CHẠY PHÓ BẢN");
+         if (dungeonRuntime_.running) StopDungeonInternal(L"khởi động lại bằng hồ sơ mới", false);
+         const bool autoTrainRunning = std::any_of(accounts_.begin(), accounts_.end(), [](const std::unique_ptr<Account>& item) {
+             return item->runtime.running;
+@@ -868,8 +1074,10 @@
+         dungeonActiveProfile_ = *profile; // Freeze the exact configuration for this run/cycle.
+         dungeonRuntime_.cycle = 1;
+         dungeonRuntime_.stageIndex = 0;
++        dungeonRuntime_.justDied = 0;
+         dungeonRuntime_.stageKillCounts.assign(profile->stages.size(), 0);
+         dungeonRuntime_.deathTracker.Reset(profile->gatherMapID, -1);
++        RefreshDungeonStageList();
+         BeginDungeonPhase(DungeonPhase::TravelNpc,
+                           L"Vòng 1 • đi NPC ResID " + std::to_wstring(profile->npcResID), GetTickCount());
+         LogAccount(*account, L"BẮT ĐẦU AUTO PHÓ BẢN • " + profile->name + L" • NPC ResID " +
+@@ -1008,8 +1216,21 @@
+                                           (record.validMask & MonsterValidVitals) != 0;
+             observations.push_back(std::move(observation));
+         }
++        std::vector<CountDiagnostic> diagnostics;
+         const std::vector<KillEvent> events = dungeonRuntime_.deathTracker.Observe(
+-            observations, profile.rules, stage.filterGroup, stage.x, stage.y, stage.countRadius);
++            observations, profile.rules, stage.filterGroup, stage.x, stage.y, stage.countRadius, &diagnostics);
++        dungeonRuntime_.justDied = static_cast<int>(events.size());
++        for (const CountDiagnostic& diagnostic : diagnostics) {
++            const std::wstring key = std::to_wstring(dungeonRuntime_.stageIndex) + L":" +
++                                     std::to_wstring(static_cast<int>(diagnostic.reason)) + L":" +
++                                     std::to_wstring(diagnostic.roleID) + L":" + std::to_wstring(diagnostic.resID);
++            if (!dungeonRuntime_.loggedDiagnostics.insert(key).second) continue;
++            LogAccount(account, L"KHÔNG TÍNH • " + std::wstring(DungeonCountReasonText(diagnostic.reason)) +
++                                L" • " + (diagnostic.name.empty() ? L"?" : diagnostic.name) +
++                                L" • RoleID " + std::to_wstring(diagnostic.roleID) +
++                                L" • ResID " + std::to_wstring(diagnostic.resID) +
++                                L" • bước " + stage.name);
++        }
+         if (!events.empty()) {
+             dungeonRuntime_.stageKills += static_cast<int>(events.size());
+             dungeonRuntime_.totalKills += static_cast<int>(events.size());
+@@ -1028,6 +1249,7 @@
+             }
+             RefreshDungeonStageList();
+         }
++        RefreshDungeonCounterUi();
+     }
+ 
+     void TickDungeonAccount(Account& account, DWORD now) {
+@@ -1071,8 +1293,11 @@
+                 if (snapshot.mapID == profile.dungeonMapID) {
+                     dungeonRuntime_.stageIndex = 0;
+                     dungeonRuntime_.stageKills = 0;
++                    dungeonRuntime_.justDied = 0;
+                     dungeonRuntime_.stageKillCounts.assign(profile.stages.size(), 0);
+                     dungeonRuntime_.deathTracker.Reset(snapshot.mapID, 0);
++                    dungeonRuntime_.loggedDiagnostics.clear();
++                    RefreshDungeonStageList();
+                     BeginDungeonPhase(DungeonPhase::TravelStage, L"Đã vào map • đi bước 1", now);
+                 } else if (now - dungeonRuntime_.phaseTick > static_cast<DWORD>(profile.entryTimeoutSec) * 1000u) {
+                     FailDungeon(L"Timeout vào map; hãy sửa CHUỖI VÀO hoặc Dungeon MapID");
+@@ -1098,7 +1323,10 @@
+                 DungeonSta

@@ -1,0 +1,143 @@
+ge& stage = profile.stages[static_cast<std::size_t>(dungeonRuntime_.stageIndex)];
+                 if (DungeonSetFight(account, true, now, L"BẬT AUTO tại " + stage.name)) {
+                     dungeonRuntime_.stageKills = 0;
++                    dungeonRuntime_.justDied = 0;
+                     dungeonRuntime_.deathTracker.Reset(snapshot.mapID, dungeonRuntime_.stageIndex);
++                    dungeonRuntime_.loggedDiagnostics.clear();
++                    RefreshDungeonStageList();
+                     BeginDungeonPhase(DungeonPhase::Fighting,
+                                       stage.name + L" • 0/" + std::to_wstring(stage.requiredKills), now);
+                 }
+@@ -1148,7 +1376,10 @@
+                     if (dungeonRuntime_.stageIndex + 1 < static_cast<int>(profile.stages.size())) {
+                         ++dungeonRuntime_.stageIndex;
+                         dungeonRuntime_.stageKills = 0;
++                        dungeonRuntime_.justDied = 0;
+                         dungeonRuntime_.deathTracker.Reset(snapshot.mapID, dungeonRuntime_.stageIndex);
++                        dungeonRuntime_.loggedDiagnostics.clear();
++                        RefreshDungeonStageList();
+                         BeginDungeonPhase(DungeonPhase::TravelStage,
+                                           L"Đi bước " + std::to_wstring(dungeonRuntime_.stageIndex + 1), now);
+                     } else {
+@@ -1183,8 +1414,11 @@
+                     ++dungeonRuntime_.cycle;
+                     dungeonRuntime_.stageIndex = 0;
+                     dungeonRuntime_.stageKills = 0;
++                    dungeonRuntime_.justDied = 0;
+                     dungeonRuntime_.stageKillCounts.assign(profile.stages.size(), 0);
+                     dungeonRuntime_.deathTracker.Reset(snapshot.mapID, -1);
++                    dungeonRuntime_.loggedDiagnostics.clear();
++                    RefreshDungeonStageList();
+                     BeginDungeonPhase(DungeonPhase::TravelNpc,
+                                       L"Vòng " + std::to_wstring(dungeonRuntime_.cycle) + L" • quay lại NPC", now);
+                 }
+diff --git a/src/dungeon_logic.h b/src/dungeon_logic.h
+index 19baded..7a2780f 100644
+--- a/src/dungeon_logic.h
++++ b/src/dungeon_logic.h
+@@ -50,6 +50,20 @@ struct KillEvent {
+     std::wstring name;
+ };
+ 
++enum class CountSkipReason {
++    WrongGroup,
++    OutsideRadius,
++    NotSeenAlive,
++    RoleIdChanged,
++};
++
++struct CountDiagnostic {
++    CountSkipReason reason = CountSkipReason::WrongGroup;
++    std::int32_t roleID = 0;
++    std::int32_t resID = 0;
++    std::wstring name;
++};
++
+ inline bool EqualFolded(const std::wstring& left, const std::wstring& right) {
+     if (left.size() != right.size()) return false;
+     for (std::size_t i = 0; i < left.size(); ++i) {
+@@ -90,19 +104,29 @@ public:
+                                    const std::wstring& requiredGroup,
+                                    std::int32_t centerX = 0,
+                                    std::int32_t centerY = 0,
+-                                   std::int32_t radius = 0) {
++                                   std::int32_t radius = 0,
++                                   std::vector<CountDiagnostic>* diagnostics = nullptr) {
+         std::vector<KillEvent> events;
+         for (const MonsterObservation& monster : scan) {
+             if (!monster.verifiedMonster || !monster.liveVitalsValid ||
+                 monster.roleID <= 0 || monster.maxHP <= 0 || monster.hp < 0 ||
+-                monster.hp > monster.maxHP ||
+-                !InCountRadius(monster, centerX, centerY, radius)) {
++                monster.hp > monster.maxHP) {
+                 continue;
+             }
++
+             const auto matching = std::find_if(rules.begin(), rules.end(), [&](const MonsterRule& rule) {
+                 return MatchesRule(monster, rule, requiredGroup);
+             });
+-            if (matching == rules.end()) continue;
++            if (matching == rules.end()) {
++                if (diagnostics) diagnostics->push_back(
++                    {CountSkipReason::WrongGroup, monster.roleID, monster.resID, monster.name});
++                continue;
++            }
++            if (!InCountRadius(monster, centerX, centerY, radius)) {
++                if (diagnostics) diagnostics->push_back(
++                    {CountSkipReason::OutsideRadius, monster.roleID, monster.resID, monster.name});
++                continue;
++            }
+ 
+             Life& life = lives_[monster.roleID];
+             const bool aliveNow = !monster.dead && monster.hp > 0;
+@@ -113,12 +137,24 @@ public:
+                 if (life.countedDead) life.countedDead = false;
+                 life.seenAlive = true;
+                 life.resID = monster.resID;
++                life.name = monster.name;
+                 continue;
+             }
+             if (deadNow && life.seenAlive && !life.countedDead) {
+-                // Fail closed: a first-seen corpse has no prior alive evidence and is never counted.
+                 life.countedDead = true;
+                 events.push_back({monster.roleID, monster.resID, monster.name});
++                continue;
++            }
++            // Fail closed: a first-seen corpse has no prior alive evidence and is never counted.
++            if (deadNow && !life.seenAlive && diagnostics) {
++                const bool roleChanged = std::any_of(lives_.begin(), lives_.end(), [&](const auto& item) {
++                    const Life& other = item.second;
++                    if (item.first == monster.roleID || !other.seenAlive || other.countedDead) return false;
++                    if (monster.resID > 0 && other.resID > 0) return monster.resID == other.resID;
++                    return !monster.name.empty() && !other.name.empty() && EqualFolded(monster.name, other.name);
++                });
++                diagnostics->push_back({roleChanged ? CountSkipReason::RoleIdChanged : CountSkipReason::NotSeenAlive,
++                                        monster.roleID, monster.resID, monster.name});
+             }
+         }
+         return events;
+@@ -127,12 +163,18 @@ public:
+     std::int32_t MapID() const { return mapID_; }
+     std::int32_t StageIndex() const { return stageIndex_; }
+     std::size_t TrackedLives() const { return lives_.size(); }
++    std::size_t SeenAliveLives() const {
++        return static_cast<std::size_t>(std::count_if(lives_.begin(), lives_.end(), [](const auto& item) {
++            return item.second.seenAlive;
++        }));
++    }
+ 
+ private:
+     struct Life {
+         bool seenAlive = false;
+         bool countedDead = false;
+         std::int32_t resID = 0;
++        std::wstring name;
+     };
+ 
+     std::unordered_map<std::int32_t, Life> lives_;
+diff --git a/src/dungeon_logic_test.cpp b/src/dungeon_logic_test.cpp
+index 9cfbd8a..1263205 100644
+--- a/src/dungeon_logic_test.cpp
++++ b/src/dungeon_logic_test.cpp
+@@ -53,6 +53,28 @@ int main() {
+     assert(tracker.Observe({{31, 501, 50, 100, 0, 0, false, false, L"Sơn T

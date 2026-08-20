@@ -1,0 +1,116 @@
+diff --git a/BUILD_STATUS.md b/BUILD_STATUS.md
+index 3d27fd8..4b1e1e2 100644
+--- a/BUILD_STATUS.md
++++ b/BUILD_STATUS.md
+@@ -1,15 +1,16 @@
+-# v0.6.1 verification status — 2026-08-20
++# v0.6.2 verification status — 2026-08-21
+ 
+ | Gate | Status |
+ | --- | --- |
+-| v0.6.1 strict monster contract | PASS locally |
++| v0.6.2 counter-test source contract | PASS locally |
+ | Route logic tests | 15/15 PASS locally |
+ | Rotation logic tests | 8/8 PASS locally |
+ | Trade coordinator tests | PASS locally |
+-| Dungeon death-counter tests | PASS locally, including player/unproven-HP rejection |
+-| Windows x64 MSVC compile | PENDING authorized GitHub Actions |
++| Dungeon death-counter + diagnostics tests | PASS locally |
++| Windows x64 MSVC compile | PENDING GitHub Actions |
++| Live 500 ms test counter | RUNTIME UNTESTED |
+ | Live nearby scanner | RUNTIME UNTESTED |
+ | Live semantic AutoFight ON/OFF | RUNTIME UNTESTED |
+ | Full dungeon loop | RUNTIME UNTESTED |
+ 
+-v0.6.0 CI success does not prove the corrected v0.6.1 monster boundary. Build/CI PASS is not live-game runtime proof; the three runtime gates above remain mandatory.
++Local Linux checks can compile the platform-independent logic tests, but they cannot prove the Win32 controller/bridge build or live client behavior. GitHub Actions is the authoritative Windows build gate; live game testing remains separate.
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index b660981..3274258 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,15 @@
+ # CHANGELOG
+ 
++## v0.6.2 — 2026-08-21
++
++- Added `BẬT TEST BỘ ĐẾM / DỪNG TEST`: scans nearby strict GMonster records every 500 ms without starting the full dungeon workflow.
++- Added large `ĐÃ GIẾT: x / y` display, seen-alive count, latest just-dead count, total kill and `RESET BỘ ĐẾM`.
++- Reset clears RoleID alive evidence as well as totals so old corpses cannot be counted after reset.
++- Full dungeon start now initializes and refreshes active stage progress immediately as `ĐANG ĐẾM • 0 / requiredKills`.
++- Added deduplicated skip diagnostics for wrong group/filter, outside radius, no prior alive evidence and probable RoleID change.
++- Kept v0.6.1 strict GMonster/live-vitals boundary and all unrelated AUTO/train/trade behavior unchanged.
++- Bumped product/CMake/resource/workflow/artifact identity to v0.6.2.
++
+ ## v0.6.1 — 2026-08-20
+ - Corrected the v0.6 entity-category error: AutoBuff's nearby `GRole` player scanner is no longer treated as a monster scanner.
+ - Dungeon scan now accepts only objects whose runtime class chain contains exact `GMonster`; GRole-only players, NPCs, pets and other sprites are excluded before HP reads and before publication.
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a794ff3..a65462a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,5 @@
+ cmake_minimum_required(VERSION 3.24)
+-project(ThanLongItemConsolidator VERSION 0.6.1 LANGUAGES CXX RC)
++project(ThanLongItemConsolidator VERSION 0.6.2 LANGUAGES CXX RC)
+ 
+ if(NOT WIN32)
+     message(FATAL_ERROR "ThanLongItemConsolidator is Windows-only")
+diff --git a/PROJECT_KNOWLEDGE.md b/PROJECT_KNOWLEDGE.md
+index c874abd..a9c9725 100644
+--- a/PROJECT_KNOWLEDGE.md
++++ b/PROJECT_KNOWLEDGE.md
+@@ -1,4 +1,14 @@
+-# PROJECT KNOWLEDGE — v0.6.1 CURRENT
++# PROJECT KNOWLEDGE — v0.6.2 CURRENT
++
++## v0.6.2 counter-test harness
++
++- User-confirmed scope: add only a test harness/visibility layer around the existing dungeon death tracker; do not replace scanner or unrelated AUTO logic.
++- `BẬT TEST BỘ ĐẾM` freezes the selected profile stage/rules and performs `ScanNearbyMonsters` every 500 ms without starting NPC travel, map entry, AutoPath, AutoFight, or exit clicks.
++- `RESET BỘ ĐẾM` intentionally clears all alive evidence; therefore a corpse visible immediately after reset is not a kill until that RoleID is seen alive again.
++- The big counter and stats panel are shared by test mode and full dungeon runtime.
++- Diagnostic skip reasons are logged once per RoleID/reason/session to avoid a 500 ms log flood: wrong group/filter, outside radius, first-seen dead (not seen alive), and probable RoleID change.
++- Full dungeon start initializes `stageKillCounts` and refreshes the list immediately, making the active row `ĐANG ĐẾM • 0 / requiredKills` instead of `-`.
++- v0.6.1 strict GMonster + live-vitals requirements remain unchanged.
+ 
+ ## v0.6.1 strict monster correction
+ 
+diff --git a/README.md b/README.md
+index 1248912..48ce1a3 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,15 @@
+-# Thần Long Item Consolidator v0.6.1
++# Thần Long Item Consolidator v0.6.2
+ 
+-Direct base: v0.6 AUTO PHÓ BẢN. v0.6.1 corrects the entity boundary: the AutoBuff player scanner remains a separate donor, while dungeon scanning accepts only objects whose runtime class chain contains the exact class `GMonster`.
++Direct base: v0.6.1 strict monster scanner. v0.6.2 adds an isolated 500 ms counter-test harness without changing the scanner identity contract: the AutoBuff player scanner remains a separate donor, while dungeon scanning accepts only objects whose runtime class chain contains the exact class `GMonster`.
++
++## v0.6.2 counter test
++
++- `BẬT TEST BỘ ĐẾM / DỪNG TEST` scans the selected dungeon account every 500 ms without starting the full dungeon FSM.
++- The large counter shows `ĐÃ GIẾT: x / y`; the companion status shows seen-alive lives, just-dead events from the latest scan, and total kills.
++- `RESET BỘ ĐẾM` clears kill totals and all prior RoleID alive evidence.
++- Full dungeon runtime now refreshes the first active stage immediately as `ĐANG ĐẾM • 0 / N`.
++- Counter diagnostics are deduplicated per stage/test session and report `sai nhóm/bộ lọc`, `ngoài bán kính`, `chưa thấy sống`, or `đổi RoleID`.
++- A kill still requires the same dynamic RoleID to be observed alive before HP=0/death; first-seen corpses remain fail-closed.
+ 
+ ## AUTO PHÓ BẢN
+ 
+diff --git a/SOURCE_PROVENANCE.md b/SOURCE_PROVENANCE.md
+index 53c5b4f..acfea38 100644
+--- a/SOURCE_PROVENANCE.md
++++ b/SOURCE_PROVENANCE.md
+@@ -1,4 +1,4 @@
+-# SOURCE PROVENANCE — v0.6.1
++# SOURCE PROVENANCE — v0.6.2
+ 
+ - Direct base: uploaded `ThanLongItemConsolidator_Source_v0.5(1).zip`, SHA-256 `d84b0f57a7da17e549c85e793232b37b5f8a518fe58f494d97fea4fd7393126d`.
+ - Nearby player donor: uploaded `ThanLongAutoBuff_Source_v1.3.1(2).zip`, SHA-256 `4dedc55a9df08abd69632c79d67827cc8d5730272c7b9fe5f82551d7ce76ace4`. It proves ObjectManager traversal and exact `GRole` player getters; it is explicitly not evidence that a `GRole` row is a monster. Its CreateRemoteThread worker was not transplanted.
+@@ -8,3 +8,7 @@
+ - The `PMVL` CSV row contains `truetrue`; v0.6.1 treats the template only as map/NPC data and does not reproduce that malformed boolean.
+ - No undocumented MapID, NPC ResID or monster ResID was invented. Combat coordinates and monster filters are user-captured from the live game.
+ - Windows GitHub CI is build transport. Static/unit/build pass must not be reported as live scanner/FSM runtime pass.
++
++
++## 

@@ -1,0 +1,72 @@
+v0.6.2 delta
++No new reverse-engineering donor was introduced. The counter-test harness reuses the v0.6.1 strict GMonster scanner and death tracker contract; only controller/test visibility and diagnostics changed.
+diff --git a/TOOL_LOGIC_TABLE.html b/TOOL_LOGIC_TABLE.html
+index 437a41f..65bab10 100644
+--- a/TOOL_LOGIC_TABLE.html
++++ b/TOOL_LOGIC_TABLE.html
+@@ -1,10 +1,11 @@
+ <!doctype html>
+ <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+-<title>Thần Long Tool Logic Table v0.6.1</title>
++<title>Thần Long Tool Logic Table v0.6.2</title>
+ <style>
+ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:#172033}h1,h2{margin:.3em 0}.box{background:white;border:1px solid #dce2eb;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 8px #0000000a}.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9eef8;margin-right:6px;font-weight:600}table{border-collapse:collapse;width:100%;background:white;font-size:14px}th,td{border:1px solid #d7dde8;padding:9px;vertical-align:top}th{background:#edf2f8;position:sticky;top:0}tr:nth-child(even){background:#fafbfd}.new{font-weight:700;background:#f1f7ff!important}.removed{text-decoration:line-through;color:#7a4650}.mono{font-family:Consolas,monospace}ul{line-height:1.55}.ok{font-weight:700}</style></head><body>
+-<h1>Thần Long Item Consolidator — Bảng logic v0.6.1</h1>
+-<div class="box"><span class="tag">Version v0.6.1</span><span class="tag">Base trực tiếp: v0.6</span><span class="tag">STRICT GMONSTER</span><span class="tag">RUNTIME TEST PENDING</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
++<h1>Thần Long Item Consolidator — Bảng logic v0.6.2</h1>
++<div class="box"><span class="tag">Version v0.6.2</span><span class="tag">Base trực tiếp: v0.6</span><span class="tag">STRICT GMONSTER</span><span class="tag">RUNTIME TEST PENDING</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
++<div class="box"><h2>v0.6.2 — Test bộ đếm độc lập</h2><ul><li>BẬT/DỪNG TEST quét 500 ms mà không chạy FSM phó bản.</li><li>Ô lớn ĐÃ GIẾT + đã theo dõi sống + vừa chết + tổng kill + RESET.</li><li>Log bỏ đếm: sai nhóm/bộ lọc, ngoài bán kính, chưa thấy sống, đổi RoleID.</li><li>Runtime phó bản hiện ngay ĐANG ĐẾM • 0/N khi bắt đầu.</li><li>Không thay contract strict GMonster/live-vitals của v0.6.1.</li></ul>
+ <div class="box"><h2>Sửa sai v0.6.1 — người không phải quái</h2><ul>
+ <li><b>Sai sót v0.6:</b> scanner nhận class chứa chữ Role hoặc Monster nên GRole/player có HP có thể lọt vào bảng quái. AutoBuff chỉ chứng minh scanner người, không chứng minh monster identity.</li>
+ <li><b>Sửa:</b> chỉ object có class/parent exact <span class="mono">GMonster</span> mới được xuất bản; GRole-only, NPC, Pet và Object bị loại trước HP/name.</li>
+@@ -26,6 +27,7 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
+ <tr class="new"><td>Mode</td><td>Mutual exclusion</td><td>Start AUTO hoặc AUTO PHÓ BẢN khi mode kia RUN</td><td>Hỏi YES/NO; chỉ sau YES mới stop mode cũ và cấp ownership mode mới</td><td>Không có hai FSM mutable cùng PID/account pool</td><td>MỚI</td><td>v0.6</td></tr>
+ <tr class="new"><td>Dungeon</td><td>Profile/template</td><td>Thêm/nhân bản/sửa hồ sơ</td><td>Lưu NPC ResID/map/tọa, dungeon MapID, stage, filter, chuỗi vào/ra, loop; 19 template CSV</td><td>Tọa chiến đấu và ResID quái không bịa; người dùng GET/quét thật</td><td>MỚI</td><td>v0.6</td></tr>
+ <tr class="removed"><td>ĐÃ THAY</td><td>Broad HP-role scanner v0.6</td><td>Class name chứa Role hoặc Monster</td><td>Có thể đưa player vào danh sách quái</td><td>Không đủ monster identity proof</td><td>LOẠI KHỎI ACTIVE</td><td>v0.6</td></tr>
++<tr class="new"><td>Dungeon</td><td>Counter test harness v0.6.2</td><td>BẬT TEST / mỗi 500ms</td><td>Dùng DeathTracker hiện hữu, stage/rule snapshot, hiển thị ĐÃ GIẾT + stats</td><td>Không chạy NPC/AutoPath/AutoFight; reset xóa alive evidence; log skip dedupe</td><td>UNIT PASS / WINDOWS CI PENDING / RUNTIME PENDING</td><td>v0.6.2</td></tr>
+ <tr class="new"><td>Dungeon</td><td>Strict GMonster scanner</td><td>Manual scan hoặc Fighting mỗi 500ms</td><td>Chỉ exact GMonster ancestry; copy Name/RoleID/ResID/live HP/death/position; ghi HP source</td><td>Loại GRole-only/NPC/Pet/Object; tối đa 96; không giữ pointer</td><td>LOCAL/CI/RUNTIME PENDING</td><td>v0.6.1</td></tr>
+ <tr class="new"><td>Dungeon</td><td>Death counter</td><td>GMonster proof + live-vitals proof + rule match + đã thấy HP&gt;0 rồi HP=0/IsDeath</td><td>+1 đúng một lần cho mỗi RoleID/life; respawn sống lại thì rearm</td><td>Player không thể arm; first corpse/repeated corpse/disappearance không cộng; reset stage/map</td><td>UNIT PENDING / RUNTIME PENDING</td><td>v0.6.1</td></tr>
+ <tr class="new"><td>Dungeon</td><td>Stage FSM</td><td>Đủ counter cấu hình</td><td>Tắt AutoFight authoritative rồi mới đi stage kế; boss là stage/filter bình thường với requiredKills riêng</td><td>Map mismatch/timeout/scanner fail/death = stop lỗi</td><td>MỚI</td><td>v0.6</td></tr>
+diff --git a/VERSION.txt b/VERSION.txt
+index 1490961..45964c6 100644
+--- a/VERSION.txt
++++ b/VERSION.txt
+@@ -1 +1 @@
+-v0.6.1
++v0.6.2
+diff --git a/docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md b/docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md
+index 223b1a8..c7c213a 100644
+--- a/docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md
++++ b/docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md
+@@ -1,6 +1,6 @@
+ # AUTO PHÓ BẢN — live runtime test plan
+ 
+-Do not mark v0.6.1 runtime-pass from compilation or CI alone. Test on the exact frozen client build with one disposable account and one short profile first.
++Do not mark v0.6.2 runtime-pass from compilation or CI alone. Test on the exact frozen client build with one disposable account and one short profile first.
+ 
+ ## A. Read-only scanner
+ 
+diff --git a/features/AUTO_DUNGEON.md b/features/AUTO_DUNGEON.md
+index dbe20ca..9d3454e 100644
+--- a/features/AUTO_DUNGEON.md
++++ b/features/AUTO_DUNGEON.md
+@@ -1,4 +1,4 @@
+-# AUTO PHÓ BẢN — v0.6.1
++# AUTO PHÓ BẢN — v0.6.2
+ 
+ ## User workflow
+ 
+@@ -43,3 +43,12 @@ The scanner and semantic AutoFight action run only inside the existing WH_GETMES
+ ## Known runtime risk
+ 
+ If the server removes a monster before any 500 ms scan observes HP=0/death, that kill is intentionally missed rather than inferred from disappearance. Live testing should determine whether a shorter safe scan interval or an authoritative death-event donor is needed.
++
++
++## v0.6.2 test counter UI
++
++- Toggle test counter: auto scan 500 ms without the dungeon FSM.
++- Large `ĐÃ GIẾT` panel + seen-alive / just-dead / total-kill counters.
++- Reset clears kill count and RoleID alive evidence.
++- Skip log reasons: wrong group/filter, outside radius, not seen alive, probable RoleID change.
++- Full runtime active-stage progress is initialized immediately at 0/requiredKills.
+diff --git a/resour

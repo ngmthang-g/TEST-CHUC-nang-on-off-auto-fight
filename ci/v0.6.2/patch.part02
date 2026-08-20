@@ -1,0 +1,166 @@
+ces/app.rc b/resources/app.rc
+index 6b24de4..ba48e5b 100644
+--- a/resources/app.rc
++++ b/resources/app.rc
+@@ -1,8 +1,8 @@
+ #include <windows.h>
+ 1 RT_MANIFEST "app.manifest"
+ 1 VERSIONINFO
+-FILEVERSION 0,6,1,0
+-PRODUCTVERSION 0,6,1,0
++FILEVERSION 0,6,2,0
++PRODUCTVERSION 0,6,2,0
+ FILEFLAGSMASK 0x3fL
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+@@ -13,11 +13,11 @@ BEGIN
+     BEGIN
+       VALUE "CompanyName", "Thang Nguyen\0"
+       VALUE "FileDescription", "Than Long Item Consolidator\0"
+-      VALUE "FileVersion", "0.6.1\0"
++      VALUE "FileVersion", "0.6.2\0"
+       VALUE "InternalName", "ThanLongItemConsolidator\0"
+-      VALUE "OriginalFilename", "ThanLongItemConsolidator_v0.6.1.exe\0"
++      VALUE "OriginalFilename", "ThanLongItemConsolidator_v0.6.2.exe\0"
+       VALUE "ProductName", "Than Long Item Consolidator\0"
+-      VALUE "ProductVersion", "0.6.1\0"
++      VALUE "ProductVersion", "0.6.2\0"
+     END
+   END
+   BLOCK "VarFileInfo"
+diff --git a/src/controller.cpp b/src/controller.cpp
+index 84c2702..53325a9 100644
+--- a/src/controller.cpp
++++ b/src/controller.cpp
+@@ -13,6 +13,7 @@
+ #include <cstdlib>
+ #include <memory>
+ #include <unordered_map>
++#include <unordered_set>
+ #include <utility>
+ #include "protocol.h"
+ #include "dungeon_logic.h"
+@@ -28,7 +29,7 @@ using namespace cleanroute_dungeon;
+ 
+ namespace {
+ 
+-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1 • STRICT MONSTER SCANNER";
++constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.2 • COUNTER TEST";
+ constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
+ constexpr UINT_PTR kTimer = 1;
+ constexpr UINT_PTR kRecordTimer = 2;
+@@ -198,6 +199,10 @@ constexpr int IDC_DG_STAGE_BOSS = 736;
+ constexpr int IDC_DG_SCAN_LIST = 740;
+ constexpr int IDC_DG_SCAN_NOW = 741;
+ constexpr int IDC_DG_SCAN_ADD_RULE = 742;
++constexpr int IDC_DG_COUNTER_TOGGLE = 743;
++constexpr int IDC_DG_COUNTER_RESET = 744;
++constexpr int IDC_DG_COUNTER_BIG = 745;
++constexpr int IDC_DG_COUNTER_STATS = 746;
+ constexpr int IDC_DG_RULE_LIST = 750;
+ constexpr int IDC_DG_RULE_SAVE = 751;
+ constexpr int IDC_DG_RULE_DELETE = 752;
+@@ -1193,6 +1198,22 @@ enum class DungeonPhase {
+     Error,
+ };
+ 
++struct DungeonCounterTestRuntime {
++    bool running = false;
++    DWORD pid = 0;
++    int profileIndex = -1;
++    int stageIndex = -1;
++    int kills = 0;
++    int targetKills = 40;
++    int justDied = 0;
++    std::size_t seenAlive = 0;
++    DWORD lastScanTick = 0;
++    DeathTracker deathTracker{};
++    DungeonStage stage{};
++    std::vector<MonsterRule> rules{};
++    std::unordered_set<std::wstring> loggedDiagnostics{};
++};
++
+ struct DungeonRuntime {
+     bool running = false;
+     DWORD pid = 0;
+@@ -1201,6 +1222,7 @@ struct DungeonRuntime {
+     int stageIndex = 0;
+     int stageKills = 0;
+     int totalKills = 0;
++    int justDied = 0;
+     int cycle = 1;
+     std::vector<int> stageKillCounts{};
+     DWORD phaseTick = 0;
+@@ -1213,6 +1235,7 @@ struct DungeonRuntime {
+     std::wstring status = L"Đã dừng";
+     DeathTracker deathTracker{};
+     std::vector<MonsterRecord> lastScan{};
++    std::unordered_set<std::wstring> loggedDiagnostics{};
+ };
+ 
+ enum class TradePhase { Idle, Rendezvous, Sequence };
+@@ -1549,7 +1572,7 @@ private:
+         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
+         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
+                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
+-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1 • AUTO PHÓ BẢN",
++        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.2 • AUTO PHÓ BẢN",
+                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
+         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
+ 
+@@ -6428,6 +6451,8 @@ private:
+             }
+             UpdateAccountRow(static_cast<int>(i), a);
+         }
++        if (!globalPaused_ && !coordinatorRecording_ && dungeonCounterTest_.running && !dungeonRuntime_.running)
++            TickDungeonCounterTest(GetTickCount());
+         if (!globalPaused_ && !coordinatorRecording_ && !dungeonRuntime_.running)
+             TickTradeCoordinator(GetTickCount());
+         UpdateSelectedLive();
+@@ -6535,8 +6560,10 @@ private:
+                         if (HIWORD(wp) == CBN_SELCHANGE) SelectDungeonProfile();
+                         break;
+                     case IDC_DG_ACCOUNT:
+-                        if (HIWORD(wp) == CBN_SELCHANGE && !dungeonRuntime_.running)
+-                            SetDungeonRuntimeStatus(L"Đã chọn acc • bấm QUÉT MONSTER / HP khi đang ở map phó bản");
++                        if (HIWORD(wp) == CBN_SELCHANGE && !dungeonRuntime_.running) {
++                            if (dungeonCounterTest_.running) StopDungeonCounterTest(L"đổi acc test");
++                            SetDungeonRuntimeStatus(L"Đã chọn acc • bấm QUÉT MONSTER / HP hoặc BẬT TEST BỘ ĐẾM");
++                        }
+                         break;
+                     case IDC_DG_ADD_TEMPLATE: AddDungeonTemplate(); break;
+                     case IDC_DG_DUPLICATE: DuplicateDungeonProfile(); break;
+@@ -6555,6 +6582,8 @@ private:
+                     case IDC_DG_STAGE_SAVE: SaveDungeonStageEditor(); break;
+                     case IDC_DG_SCAN_NOW: ManualDungeonScan(); break;
+                     case IDC_DG_SCAN_ADD_RULE: AddSelectedScanToRule(); break;
++                    case IDC_DG_COUNTER_TOGGLE: ToggleDungeonCounterTest(); break;
++                    case IDC_DG_COUNTER_RESET: ResetDungeonCounterTest(); break;
+                     case IDC_DG_RULE_SAVE: SaveDungeonRuleEditor(); break;
+                     case IDC_DG_RULE_DELETE: DeleteDungeonRule(); break;
+                     case IDC_TRADE_ROLE:
+@@ -6693,6 +6722,7 @@ private:
+                 return 0;
+             case WM_CLOSE:
+                 if (recorderMode_ != RecorderMode::None) StopRecorder(true);
++                if (dungeonCounterTest_.running) StopDungeonCounterTest(L"đóng tool");
+                 if (dungeonRuntime_.running) StopDungeonInternal(L"đóng tool", false);
+                 DestroyWindow(hwnd_);
+                 return 0;
+@@ -6806,6 +6836,9 @@ private:
+     HWND dungeonStageTimeout_ = nullptr;
+     HWND dungeonStageBoss_ = nullptr;
+     HWND dungeonScanList_ = nullptr;
++    HWND dungeonCounterToggle_ = nullptr;
++    HWND dungeonCounterBig_ = nullptr;
++    HWND dungeonCounterStats_ = nullptr;
+     HWND dungeonRuleList_ = nullptr;
+     HWND dungeonRuleName_ = nullptr;
+     HWND dungeonRuleResID_ = nullptr;
+@@ -6818,6 +6851,7 @@ private:
+     HWND dungeonSequenceRepeat_ = nullptr;
+     std::vector<DungeonProfile> dungeonProfiles_{};
+     std::vector<MonsterRecord> dungeonLastScan_{};
++    DungeonCounterTestRuntime dungeonCounterTest_{};
+     DungeonRuntime dungeonRuntime_{};
+     DungeonProfile du
