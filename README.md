@@ -1,96 +1,30 @@
-# Thần Long AutoFight Test
+# Thần Long Item Consolidator v0.6
 
-Repository test độc lập cho đúng một mục tiêu: **bật / tắt AutoFight (Đánh quái) bằng action semantic bên trong client**, không giả lập chuột và không click tab `Đánh quái` trên màn hình.
+Direct base: exact v0.5 source. v0.6 adds the `AUTO PHÓ BẢN` tab immediately before `GIỚI THIỆU`; the original AUTO/World Flow/Sell/Trade/Rotation behavior remains in its old tab.
 
-## Nền source
+## AUTO PHÓ BẢN
 
-- Nền: source người dùng cung cấp `ThanLongCleanRoute_v1.0.0_FIXED_GitHubActions`.
-- Repo nghiên cứu tham khảo duy nhất: `ngmthang-g/clinent-game-than-long-DATA-2222`.
-- Repo DATA là **read-only knowledge source** đối với dự án này; không ghi code test vào đó.
+- One active account and one dungeon profile at a time.
+- Configurable NPC `ResID`, gathering map/position, expected dungeon MapID, entry/exit real-click sequences, loop mode and an ordered list of stages.
+- Every stage has MapID, X/Y, tolerance, required kill count, filter group, optional count radius, timeout and BOSS marker.
+- Live scanner lists dynamic RoleID, stable ResID when exposed, Name, HP/MaxHP, death state, position and runtime class/type.
+- A scanned monster can be saved into an enabled filter group. ResID is preferred; exact name is the fallback only when the client does not expose ResID.
+- Kill counting is `seen alive -> HP=0/dead`, deduplicated per dynamic RoleID/life. A first-seen corpse, repeated corpse scan, or disappearance from AOI is never counted. Seeing the same RoleID alive after a death rearms one new life.
+- State machine: travel NPC -> `ClickNPC(ResID)` -> entry clicks -> prove dungeon MapID -> travel stage -> prove AutoFight ON -> scan/count -> prove AutoFight OFF -> next stage -> exit clicks -> prove map exit -> optional next loop.
+- Timeouts are errors, never success evidence.
 
-## Contract AutoFight đã xác minh từ knowledge base
+The template selector includes the 19 canonical rows from `database/FUBEN_SCENARIOS.csv` in the research repository. Templates fill known NPC/map information but intentionally leave combat coordinates at zero for the user to GET in the live dungeon.
 
-```text
-C_AutoModel.Train = 1
-TopIcon:AutoTrainClick()
-  -> GUI.FindUI("AutoFight_Main")
-  -> StartAutoFight(C_AutoModel.Train)
+## Mutual exclusion
 
-TopIcon:AutoStopClick()
-  -> StartAutoFight(C_AutoModel.None)
-```
+Starting AUTO PHÓ BẢN while AUTO TRAIN is active asks to stop every running AUTO account. Starting AUTO TRAIN while a dungeon run is active asks to stop the dungeon run. Only one mode can own runtime actions.
 
-`Đánh quái` nhìn thấy trong `AutoFight` là tab cấu hình, không phải lệnh bật Train.
+## Build and test
 
-## Cách bản test v0.1.0 hoạt động
+The Windows x64 workflow runs:
 
-```text
-Controller
- -> chọn PID có GameAssembly.dll
- -> WH_GETMESSAGE bridge kế thừa từ CleanRoute
- -> shared-memory command StartAutoFight / StopAutoFight
- -> IL2CPP metadata resolver
- -> LuaSystemManager.ExecuteFunction(...)
- -> TopIcon.AutoTrainClick / TopIcon.AutoStopClick
- -> client tự chạy semantic AutoFight engine
-```
+1. `tools/verify_v06_logic.py`
+2. Release EXE/DLL build
+3. route, rotation, trade-coordinator and dungeon death-counter tests
 
-UI test chỉ có:
-
-- Quét client;
-- BẬT AUTO FIGHT (ĐÁNH QUÁI);
-- TẮT AUTO FIGHT;
-- trạng thái và log.
-
-Các control giữ bãi của source nền không còn được đưa ra UI test.
-
-## Trạng thái bằng chứng
-
-- Semantic Lua start/stop: **VERIFIED từ DATA knowledge base**.
-- Source adapter v0.1.0: **EXPERIMENTAL**.
-- Build/CI: xem GitHub Actions của version hiện tại.
-- Runtime AutoFight: **RUNTIME UNTESTED** cho tới khi chạy trên client thật và quan sát hiệu ứng bật/tắt.
-
-Quan trọng: knowledge base chuẩn của dự án lớn yêu cầu mutable action production đi qua `System.Action -> MainThread.Execute`. Bản v0.1.0 cố ý tái sử dụng bridge callback-thread của source nền để kiểm tra hẹp đường Lua semantic trước. Nếu runtime crash/disconnect/no-op, không được kết luận AutoFight contract sai; bước kế tiếp là chuyển action execution sang MainThread bridge đã được thiết kế trong DATA KB.
-
-## Test runtime
-
-1. Mở game, vào nhân vật và đứng ở map đã load xong.
-2. Chạy `ThanLongAutoFightTest_v0.1.0.exe` cùng mức quyền với game.
-3. Bấm `QUÉT CLIENT`, chọn đúng PID.
-4. Bấm `BẬT AUTO FIGHT (ĐÁNH QUÁI)`.
-5. Xác nhận trong game: Auto Train thực sự bật và nhân vật bắt đầu hành vi đánh quái theo setting có sẵn.
-6. Bấm `TẮT AUTO FIGHT`.
-7. Xác nhận Auto Train thực sự dừng.
-8. Nếu lỗi, giữ nguyên dòng log bridge để dùng làm evidence cho version sau.
-
-Log `ExecuteFunction signature chưa hỗ trợ` nghĩa là adapter cần resolve **đúng signature hẹp** của `LuaSystemManager.ExecuteFunction`; không phải lý do để broad reverse-engineer lại client.
-
-## Build
-
-Yêu cầu Zig. Trên Windows:
-
-```bat
-build.cmd
-```
-
-Output:
-
-```text
-dist/ThanLongAutoFightTest_v0.1.0.exe
-dist/ThanLongAutoFightTestBridge.dll
-```
-
-GitHub Actions cũng build và upload hai file này thành artifact.
-
-## AI startup
-
-Trước khi sửa version tiếp theo, đọc theo thứ tự:
-
-1. `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md`
-2. `AI_CLIENT_ANALYSIS_RULES.txt`
-3. `AI_INDEX.md`
-4. `PROJECT_KNOWLEDGE.md`
-5. `docs/features/AUTO_FIGHT.md`
-6. `CHANGELOG.md`
-7. source liên quan.
+`BUILD/CI PASS` is not `RUNTIME PASS`. The scanner RVAs and semantic AutoFight action are frozen-build guarded (`TimeDateStamp 0x6A410C14`, `SizeOfImage 0x03DCB000`) and still require a live test on that exact game client. Read `docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md` before trusting an unattended loop.

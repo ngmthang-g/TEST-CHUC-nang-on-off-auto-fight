@@ -1,32 +1,39 @@
-name: Build AutoFight Test
+name: build-item-consolidator-v0.6
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
-  build:
+  windows-x64:
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
+      - uses: actions/checkout@v4
+      - name: Verify v0.6 dungeon scope
+        run: python tools/verify_v06_logic.py
+      - name: Configure x64
+        run: cmake -S . -B build -A x64
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+      - name: Route logic self-test
+        run: .\build\Release\route_logic_tests.exe
+      - name: Rotation logic self-test
+        run: .\build\Release\rotation_logic_tests.exe
+      - name: Shared coordinator self-test
+        run: .\build\Release\trade_coordinator_logic_tests.exe
+      - name: Dungeon death-counter self-test
+        run: .\build\Release\dungeon_logic_tests.exe
+      - name: Stage artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.exe
+          Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
+          Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,BUILD_STATUS.md,TOOL_LOGIC_TABLE.html stage\
+          Copy-Item -Recurse docs,features stage\
+      - uses: actions/upload-artifact@v4
         with:
-          version: 0.14.1
-
-      - name: Build and audit
-        shell: cmd
-        run: build.cmd
-
-      - name: Upload test binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: ThanLong-AutoFight-Test-v0.1.2
-          path: |
-            dist/ThanLongAutoFightTest_v0.1.2.exe
-            dist/ThanLongAutoFightTestBridge.dll
+          name: ThanLongItemConsolidator-v0.6-win-x64
+          path: stage
           if-no-files-found: error

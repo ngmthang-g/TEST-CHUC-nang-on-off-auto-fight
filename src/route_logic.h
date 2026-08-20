@@ -31,6 +31,30 @@ enum class Action {
     Hold,
 };
 
+enum class MountAssistAction {
+    Wait,
+    Mount,
+    StartPath,
+    MountCycleFailed,
+    FinishFootCycle,
+};
+
+inline MountAssistAction DecideMountAssist(bool riding, bool autoPathing, int mountAttempts,
+                                           bool footFallback, std::uint32_t phaseElapsedMs,
+                                           std::uint32_t mountRetryWaitMs = 5000,
+                                           std::uint32_t footWalkMaxMs = 15000) {
+    if (riding) return autoPathing ? MountAssistAction::Wait : MountAssistAction::StartPath;
+    if (footFallback) {
+        if (phaseElapsedMs >= footWalkMaxMs) return MountAssistAction::FinishFootCycle;
+        return autoPathing ? MountAssistAction::Wait : MountAssistAction::StartPath;
+    }
+    if (mountAttempts <= 0) return MountAssistAction::Mount;
+    if (mountAttempts == 1) {
+        return phaseElapsedMs >= mountRetryWaitMs ? MountAssistAction::Mount : MountAssistAction::Wait;
+    }
+    return phaseElapsedMs >= mountRetryWaitMs ? MountAssistAction::MountCycleFailed : MountAssistAction::Wait;
+}
+
 inline bool AtTarget(const State& s, const Target& t) {
     if (!s.valid || s.mapID != t.mapID) return false;
     const long long dx = static_cast<long long>(s.x) - t.x;

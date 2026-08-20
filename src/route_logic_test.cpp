@@ -26,6 +26,14 @@ int main() {
     Check(Decide(s, t) == Action::Dismount, "arrive-mounted->dismount");
     s.riding = false;
     Check(Decide(s, t) == Action::Hold, "arrive-foot->hold");
-    std::printf("RESULT %d/8 PASS\n", 8 - g_fail);
+
+    Check(DecideMountAssist(false, false, 0, false, 0) == MountAssistAction::Mount, "mount-assist:first-mount");
+    Check(DecideMountAssist(false, false, 1, false, 4999) == MountAssistAction::Wait, "mount-assist:wait-first-5s");
+    Check(DecideMountAssist(false, false, 1, false, 5000) == MountAssistAction::Mount, "mount-assist:second-mount-at-5s");
+    Check(DecideMountAssist(false, false, 2, false, 4999) == MountAssistAction::Wait, "mount-assist:wait-second-5s");
+    Check(DecideMountAssist(false, false, 2, false, 5000) == MountAssistAction::MountCycleFailed, "mount-assist:two-mount-cycle-failed");
+    Check(DecideMountAssist(false, true, 2, true, 14999) == MountAssistAction::Wait, "mount-assist:foot-max-15s");
+    Check(DecideMountAssist(false, true, 2, true, 15000) == MountAssistAction::FinishFootCycle, "mount-assist:repeat-mount-cycle");
+    std::printf("RESULT %d/15 PASS\n", 15 - g_fail);
     return g_fail ? 1 : 0;
 }
