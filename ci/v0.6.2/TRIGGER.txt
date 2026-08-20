@@ -1,0 +1,1 @@
+Trigger Windows GitHub Actions for v0.6.2 counter-test build.
