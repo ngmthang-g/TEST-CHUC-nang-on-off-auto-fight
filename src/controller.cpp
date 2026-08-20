@@ -28,7 +28,7 @@ using namespace cleanroute_dungeon;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6 • AUTO PHÓ BẢN + DEATH COUNTER";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1 • STRICT MONSTER SCANNER";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -1549,7 +1549,7 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6 • AUTO PHÓ BẢN",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1 • AUTO PHÓ BẢN",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 
@@ -6536,7 +6536,7 @@ private:
                         break;
                     case IDC_DG_ACCOUNT:
                         if (HIWORD(wp) == CBN_SELCHANGE && !dungeonRuntime_.running)
-                            SetDungeonRuntimeStatus(L"Đã chọn acc • bấm QUÉT QUÁI / HP khi đang ở map phó bản");
+                            SetDungeonRuntimeStatus(L"Đã chọn acc • bấm QUÉT MONSTER / HP khi đang ở map phó bản");
                         break;
                     case IDC_DG_ADD_TEMPLATE: AddDungeonTemplate(); break;
                     case IDC_DG_DUPLICATE: DuplicateDungeonProfile(); break;

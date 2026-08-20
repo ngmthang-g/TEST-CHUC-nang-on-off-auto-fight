@@ -1,8 +1,16 @@
 # CHANGELOG
 
+## v0.6.1 — 2026-08-20
+- Corrected the v0.6 entity-category error: AutoBuff's nearby `GRole` player scanner is no longer treated as a monster scanner.
+- Dungeon scan now accepts only objects whose runtime class chain contains exact `GMonster`; GRole-only players, NPCs, pets and other sprites are excluded before HP reads and before publication.
+- Added independent counter barriers `MonsterValidClassProof` and `MonsterValidLiveVitals`; player-like or unproven records cannot arm a RoleID life even when a saved name/ResID rule matches.
+- Live monster vitals prefer semantic `get_HP/get_MaxHP`; the frozen GRole RVA donor is a guarded fallback only when the accepted GMonster also proves a GRole base class.
+- Added excluded-GRole/other-sprite/HP-failure diagnostics, explicit `HP:SEM`/`HP:RVA` UI provenance and regression tests for player/unproven-vitals rejection.
+- Bumped protocol, product, workflow and artifact identity to v0.6.1. Windows build and live GMonster/HP/death proof remain pending.
+
 ## v0.6 — 2026-08-20
 - Added `AUTO PHÓ BẢN` before `GIỚI THIỆU`, with persisted profiles, 19 research-repo templates, editable NPC/map settings, stages, monster filters and entry/exit real-click sequences.
-- Added frozen-build-guarded nearby HP scanner returning Name, dynamic RoleID, ResID when exposed, HP/MaxHP, death, position and class/type.
+- Added the first frozen-build-guarded nearby HP scanner. Its broad `Role`/`Monster` class-name acceptance could include players and is superseded by v0.6.1 strict GMonster proof.
 - Added stage-scoped death counter: only observed alive -> HP=0/dead counts; repeated corpses, first-seen corpses and AOI disappearance do not count; respawn rearms one new life.
 - Added fail-closed dungeon FSM from NPC travel through map entry, ordered kill stages, boss, exit and optional looping. Map/state/AutoFight are proven at every transition; timeouts stop as errors.
 - Added semantic `AutoFight_Main.StartAutoFight(Train=1/None=0)` bridge command with Unity-main-thread and exact PE/signature guards; controller verifies the resulting snapshot state.

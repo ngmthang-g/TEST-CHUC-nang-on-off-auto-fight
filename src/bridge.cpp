@@ -197,13 +197,12 @@ const MethodInfo* FindMethodExact(Il2CppClass* klass, const char* name,
     return nullptr;
 }
 
-bool ContainsAscii(const char* text, const char* needle) {
-    if (!text || !needle || !*needle) return false;
-    for (const char* p = text; *p; ++p) {
-        const char* a = p;
-        const char* b = needle;
-        while (*a && *b && *a == *b) { ++a; ++b; }
-        if (!*b) return true;
+bool ClassChainHasExactName(Il2CppClass* klass, const char* expected) {
+    if (!klass || !expected || !*expected || !g_api.class_get_name || !g_api.class_get_parent) return false;
+    // Deliberately exact. Substring tests such as "Role"/"Monster" mixed player
+    // and monster families and are forbidden for the dungeon counter.
+    for (Il2CppClass* current = klass; current; current = g_api.class_get_parent(current)) {
+        if (Eq(g_api.class_get_name(current), expected)) return true;
     }
     return false;
 }
@@ -277,8 +276,9 @@ bool TryScalarGetter(Il2CppClass* klass, void* instance, std::int32_t& out,
 }
 
 bool TryIntField(Il2CppClass* klass, Il2CppObject* instance, std::int32_t& out,
-                 const char* a, const char* b = nullptr, const char* c = nullptr) {
-    const char* names[] = {a, b, c};
+                 const char* a, const char* b = nullptr, const char* c = nullptr,
+                 const char* d = nullptr) {
+    const char* names[] = {a, b, c, d};
     for (const char* name : names) {
         if (!name) continue;
         FieldInfo* field = nullptr;
@@ -655,7 +655,12 @@ bool ScanNearbyMonsters(Response& response, wchar_t* detail, std::size_t cap) {
 
     response.monsterCount = 0;
     response.scannedEntries = 0;
+    response.excludedPlayerRoles = 0;
+    response.excludedOtherSprites = 0;
+    response.monsterHpReadFailures = 0;
     response.monsterTruncated = 0;
+    wchar_t firstAcceptedClass[40]{};
+    wchar_t firstRejectedClass[40]{};
     for (std::int32_t i = 0; i < count; ++i) {
         const auto* entry = reinterpret_cast<std::uint8_t*>(entries) + ArrayData +
                             static_cast<std::uintptr_t>(i) * EntrySize;
@@ -669,28 +674,71 @@ bool ScanNearbyMonsters(Response& response, wchar_t* detail, std::size_t cap) {
             objectRoleID != keyRoleID) continue;
 
         Il2CppClass* actual = nullptr;
-        if (!SafeLoad(sprite, actual) || !actual || !ReadableRange(actual, sizeof(void*))) continue;
+        if (!SafeLoad(sprite, actual) || !actual || !ReadableRange(actual, sizeof(void*))) {
+            ++response.excludedOtherSprites;
+            continue;
+        }
         const char* className = g_api.class_get_name(actual);
-        if (!actual || !className ||
-            (!ContainsAscii(className, "Role") && !ContainsAscii(className, "Monster"))) continue;
+        if (!className) {
+            ++response.excludedOtherSprites;
+            continue;
+        }
+
+        // This is the hard boundary between the AutoBuff player scanner and the
+        // dungeon monster scanner. GMonster subclasses are accepted; GRole-only
+        // players and every other sprite family are excluded before HP/name reads.
+        const bool provenMonster = ClassChainHasExactName(actual, "GMonster");
+        if (!provenMonster) {
+            if (ClassChainHasExactName(actual, "GRole")) ++response.excludedPlayerRoles;
+            else ++response.excludedOtherSprites;
+            if (!firstRejectedClass[0]) CopyAscii(className, firstRejectedClass, _countof(firstRejectedClass));
+            continue;
+        }
+        if (!firstAcceptedClass[0]) CopyAscii(className, firstAcceptedClass, _countof(firstAcceptedClass));
+        const bool provenGRoleBase = ClassChainHasExactName(actual, "GRole");
 
         std::int32_t hp = -1;
         std::int32_t maxHP = -1;
         Il2CppString* managedName = nullptr;
+        MonsterHpSource hpSource = MonsterHpSource::None;
+        const bool semanticVitals =
+            TryScalarGetter(actual, sprite, hp, "get_HP", "get_Hp", "get_CurrentHP") &&
+            TryScalarGetter(actual, sprite, maxHP, "get_MaxHP", "get_MaxHp", "get_HPMax");
+        if (semanticVitals) hpSource = MonsterHpSource::SemanticGetter;
 #if defined(_MSC_VER)
-        __try {
-            hp = getHP(sprite, nullptr);
-            maxHP = getMaxHP(sprite, nullptr);
-            managedName = getName(sprite, nullptr);
-        } __except(EXCEPTION_EXECUTE_HANDLER) {
-            continue;
+        if (!semanticVitals && provenGRoleBase) {
+            __try {
+                // GMonster is proven to be in the GRole class chain on this frozen
+                // client before these donor getters are allowed to run.
+                hp = getHP(sprite, nullptr);
+                maxHP = getMaxHP(sprite, nullptr);
+                hpSource = MonsterHpSource::GuardedGRoleSubclassRva;
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                hp = -1;
+                maxHP = -1;
+                hpSource = MonsterHpSource::None;
+            }
+        }
+        if (provenGRoleBase) {
+            __try {
+                managedName = getName(sprite, nullptr);
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                managedName = nullptr;
+            }
         }
 #else
-        hp = getHP(sprite, nullptr);
-        maxHP = getMaxHP(sprite, nullptr);
-        managedName = getName(sprite, nullptr);
+        if (!semanticVitals && provenGRoleBase) {
+            hp = getHP(sprite, nullptr);
+            maxHP = getMaxHP(sprite, nullptr);
+            hpSource = MonsterHpSource::GuardedGRoleSubclassRva;
+        }
+        if (provenGRoleBase) managedName = getName(sprite, nullptr);
 #endif
-        if (maxHP <= 0 || hp < 0 || hp > maxHP) continue;
+        const bool liveVitalsValid = hpSource != MonsterHpSource::None &&
+                                     maxHP > 0 && hp >= 0 && hp <= maxHP;
+        if (!liveVitalsValid) {
+            ++response.monsterHpReadFailures;
+        }
         if (response.monsterCount >= kMaxMonsterRecords) {
             response.monsterTruncated = 1;
             continue;
@@ -701,7 +749,10 @@ bool ScanNearbyMonsters(Response& response, wchar_t* detail, std::size_t cap) {
         record.roleID = keyRoleID;
         record.hp = hp;
         record.maxHP = maxHP;
-        record.validMask |= MonsterValidIdentity | MonsterValidVitals;
+        record.hpSource = static_cast<std::int32_t>(hpSource);
+        record.validMask |= MonsterValidIdentity | MonsterValidClassProof;
+        if (liveVitalsValid)
+            record.validMask |= MonsterValidVitals | MonsterValidLiveVitals;
         CopyAscii(className, record.className, _countof(record.className));
 
         if (managedName && CopyString(managedName, record.name, _countof(record.name))) {
@@ -712,33 +763,44 @@ bool ScanNearbyMonsters(Response& response, wchar_t* detail, std::size_t cap) {
 
         std::int32_t value = 0;
         if (TryScalarGetter(actual, sprite, value, "get_ResID", "get_ResId", "get_TemplateID") ||
-            TryIntField(actual, sprite, value, "ResID", "resID", "m_ResID")) {
+            TryScalarGetter(actual, sprite, value, "get_MonsterID", "get_MonsterResID") ||
+            TryIntField(actual, sprite, value, "ResID", "resID", "m_ResID", "monsterResID") ||
+            TryIntField(actual, sprite, value, "MonsterID", "monsterID", "m_MonsterID")) {
             record.resID = value;
             if (value > 0) record.validMask |= MonsterValidTemplate;
         }
         value = 0;
-        if (TryScalarGetter(actual, sprite, value, "get_Type", "get_SpriteType", "get_RoleType")) {
+        if (TryScalarGetter(actual, sprite, value, "get_Type", "get_SpriteType", "get_RoleType") ||
+            TryIntField(actual, sprite, value, "Type", "type", "m_Type", "ObjectType")) {
             record.type = value;
             record.validMask |= MonsterValidType;
         }
-        value = hp == 0 ? 1 : 0;
+        value = liveVitalsValid && hp == 0 ? 1 : 0;
         if (TryScalarGetter(actual, sprite, value, "get_IsDeath", "get_IsDead")) {
             record.dead = value ? 1 : 0;
             record.validMask |= MonsterValidDeath;
-        } else {
+        } else if (liveVitalsValid) {
             record.dead = hp == 0 ? 1 : 0;
             record.validMask |= MonsterValidDeath;
         }
         std::int32_t x = 0, y = 0;
-        if (TryScalarGetter(actual, sprite, x, "get_PosX", "get_X") &&
-            TryScalarGetter(actual, sprite, y, "get_PosY", "get_Y")) {
+        const bool gotX = TryScalarGetter(actual, sprite, x, "get_PosX", "get_X") ||
+                          TryIntField(actual, sprite, x, "PosX", "posX", "m_PosX");
+        const bool gotY = TryScalarGetter(actual, sprite, y, "get_PosY", "get_Y") ||
+                          TryIntField(actual, sprite, y, "PosY", "posY", "m_PosY");
+        if (gotX && gotY) {
             record.x = x; record.y = y; record.validMask |= MonsterValidPosition;
         }
     }
 
-    SetText(detail, cap, L"SCAN nearby HP-bearing roles=");
+    SetText(detail, cap, L"SCAN STRICT GMonster=");
     AppendInt(detail, cap, static_cast<int>(response.monsterCount));
     Append(detail, cap, L" / entries="); AppendInt(detail, cap, static_cast<int>(response.scannedEntries));
+    Append(detail, cap, L" / loại GRole="); AppendInt(detail, cap, static_cast<int>(response.excludedPlayerRoles));
+    Append(detail, cap, L" / loại khác="); AppendInt(detail, cap, static_cast<int>(response.excludedOtherSprites));
+    Append(detail, cap, L" / HP fail="); AppendInt(detail, cap, static_cast<int>(response.monsterHpReadFailures));
+    if (firstAcceptedClass[0]) { Append(detail, cap, L" / firstMonster="); Append(detail, cap, firstAcceptedClass); }
+    if (firstRejectedClass[0]) { Append(detail, cap, L" / firstRejected="); Append(detail, cap, firstRejectedClass); }
     if (response.monsterTruncated) Append(detail, cap, L" • TRUNCATED 96");
     return true;
 }

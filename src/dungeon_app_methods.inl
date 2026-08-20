@@ -266,18 +266,18 @@
         dungeonScanList_ = DungeonMake(WC_LISTVIEWW, L"", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER,
                                        18, 445, 935, 145, IDC_DG_SCAN_LIST);
         ListView_SetExtendedListViewStyle(dungeonScanList_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
-        DungeonListColumn(dungeonScanList_, 0, 185, L"Tên");
-        DungeonListColumn(dungeonScanList_, 1, 85, L"RoleID động");
-        DungeonListColumn(dungeonScanList_, 2, 75, L"ResID");
-        DungeonListColumn(dungeonScanList_, 3, 120, L"HP / MaxHP");
-        DungeonListColumn(dungeonScanList_, 4, 55, L"Chết");
-        DungeonListColumn(dungeonScanList_, 5, 90, L"X,Y");
-        DungeonListColumn(dungeonScanList_, 6, 165, L"Class / Type");
-        DungeonListColumn(dungeonScanList_, 7, 150, L"Cờ dữ liệu");
-        DungeonMake(L"BUTTON", L"QUÉT QUÁI / HP", BS_PUSHBUTTON, 18, 596, 140, 27, IDC_DG_SCAN_NOW);
-        DungeonMake(L"BUTTON", L"THÊM QUÁI ĐÃ CHỌN VÀO BỘ ĐẾM", BS_PUSHBUTTON, 166, 596, 280, 27, IDC_DG_SCAN_ADD_RULE);
-        DungeonMake(L"STATIC", L"Không cộng khi quái chỉ biến khỏi AOI; cần bắt được chuyển sống → HP=0/chết.",
-                    SS_LEFT | SS_CENTERIMAGE, 460, 596, 493, 27, 0);
+        DungeonListColumn(dungeonScanList_, 0, 150, L"Tên");
+        DungeonListColumn(dungeonScanList_, 1, 80, L"RoleID động");
+        DungeonListColumn(dungeonScanList_, 2, 65, L"ResID");
+        DungeonListColumn(dungeonScanList_, 3, 110, L"HP / MaxHP");
+        DungeonListColumn(dungeonScanList_, 4, 50, L"Chết");
+        DungeonListColumn(dungeonScanList_, 5, 80, L"X,Y");
+        DungeonListColumn(dungeonScanList_, 6, 245, L"Class / Type / Proof HP");
+        DungeonListColumn(dungeonScanList_, 7, 130, L"Cờ dữ liệu");
+        DungeonMake(L"BUTTON", L"QUÉT MONSTER / HP", BS_PUSHBUTTON, 18, 596, 160, 27, IDC_DG_SCAN_NOW);
+        DungeonMake(L"BUTTON", L"THÊM MONSTER ĐÃ CHỌN VÀO BỘ ĐẾM", BS_PUSHBUTTON, 186, 596, 300, 27, IDC_DG_SCAN_ADD_RULE);
+        DungeonMake(L"STATIC", L"Chỉ nhận class GMonster; GRole/người, NPC, Pet, Object bị loại trước bộ đếm.",
+                    SS_LEFT | SS_CENTERIMAGE, 495, 596, 458, 27, 0);
 
         dungeonRuleList_ = DungeonMake(WC_LISTVIEWW, L"", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER,
                                        18, 630, 935, 130, IDC_DG_RULE_LIST);
@@ -418,8 +418,8 @@
                 const std::wstring res = std::to_wstring(rule.resID);
                 const std::wstring boss = rule.boss ? L"CÓ" : L"-";
                 const std::wstring mode = rule.resID > 0
-                    ? L"ResID+RoleID life: sống → HP=0"
-                    : L"Tên+RoleID life: sống → HP=0";
+                    ? L"GMonster proof + ResID + RoleID: sống → HP=0"
+                    : L"GMonster proof + Tên + RoleID: sống → HP=0";
                 ListView_SetItemText(dungeonRuleList_, static_cast<int>(i), 1, const_cast<wchar_t*>(res.c_str()));
                 ListView_SetItemText(dungeonRuleList_, static_cast<int>(i), 2, const_cast<wchar_t*>(rule.group.c_str()));
                 ListView_SetItemText(dungeonRuleList_, static_cast<int>(i), 3, const_cast<wchar_t*>(boss.c_str()));
@@ -624,11 +624,17 @@
             item.pszText = const_cast<wchar_t*>(name.c_str()); ListView_InsertItem(dungeonScanList_, &item);
             const std::wstring role = std::to_wstring(monster.roleID);
             const std::wstring res = (monster.validMask & MonsterValidTemplate) ? std::to_wstring(monster.resID) : L"?";
-            const std::wstring hp = std::to_wstring(monster.hp) + L" / " + std::to_wstring(monster.maxHP);
-            const std::wstring dead = monster.dead ? L"CÓ" : L"-";
+            const std::wstring hp = (monster.validMask & MonsterValidLiveVitals)
+                ? std::to_wstring(monster.hp) + L" / " + std::to_wstring(monster.maxHP) : L"HP CHƯA ĐỌC";
+            const std::wstring dead = (monster.validMask & MonsterValidDeath)
+                ? (monster.dead ? L"CÓ" : L"-") : L"?";
             const std::wstring pos = (monster.validMask & MonsterValidPosition)
                 ? std::to_wstring(monster.x) + L"," + std::to_wstring(monster.y) : L"?";
-            const std::wstring klass = std::wstring(monster.className) + L" / " + std::to_wstring(monster.type);
+            const wchar_t* hpSource = monster.hpSource == static_cast<int>(MonsterHpSource::SemanticGetter)
+                ? L"HP:SEM" : (monster.hpSource == static_cast<int>(MonsterHpSource::GuardedGRoleSubclassRva)
+                    ? L"HP:RVA" : L"HP:?" );
+            const std::wstring klass = std::wstring(monster.className) + L" / " +
+                                       std::to_wstring(monster.type) + L" / GMonster✓ / " + hpSource;
             const std::wstring flags = L"0x" + std::to_wstring(monster.validMask);
             ListView_SetItemText(dungeonScanList_, static_cast<int>(i), 1, const_cast<wchar_t*>(role.c_str()));
             ListView_SetItemText(dungeonScanList_, static_cast<int>(i), 2, const_cast<wchar_t*>(res.c_str()));
@@ -653,11 +659,15 @@
         Response response{}; std::wstring error;
         if (!ScanDungeonMonsters(*account, response, error)) {
             SetText(dungeonStatus_, L"QUÉT FAIL: " + error);
-            LogAccount(*account, L"QUÉT QUÁI/HP FAIL: " + error); return;
+            LogAccount(*account, L"QUÉT MONSTER/HP FAIL: " + error); return;
         }
         RefreshDungeonScanList(response);
-        SetText(dungeonStatus_, L"QUÉT PASS: " + std::to_wstring(response.monsterCount) +
-                                 L" role có HP • xem Class/Type rồi thêm đúng quái vào bộ lọc");
+        SetText(dungeonStatus_, L"QUÉT MONSTER PASS: " + std::to_wstring(response.monsterCount) +
+                                 L" GMonster • loại GRole/người " +
+                                 std::to_wstring(response.excludedPlayerRoles) + L" • loại khác " +
+                                 std::to_wstring(response.excludedOtherSprites) + L" • HP fail " +
+                                 std::to_wstring(response.monsterHpReadFailures));
+        LogAccount(*account, response.detail);
     }
 
     void AddSelectedScanToRule() {
@@ -665,6 +675,13 @@
         const int row = ListView_GetNextItem(dungeonScanList_, -1, LVNI_SELECTED);
         if (row < 0 || row >= static_cast<int>(dungeonLastScan_.size())) return;
         const MonsterRecord& monster = dungeonLastScan_[static_cast<std::size_t>(row)];
+        const std::uint32_t requiredProof = MonsterValidClassProof | MonsterValidIdentity;
+        if ((monster.validMask & requiredProof) != requiredProof) {
+            Log(L"[AUTO PHÓ BẢN] Từ chối thêm: object chưa đủ GMonster identity proof.");
+            return;
+        }
+        if ((monster.validMask & MonsterValidLiveVitals) == 0)
+            Log(L"[AUTO PHÓ BẢN] Đã lưu đúng GMonster nhưng HP chưa đọc được; bộ đếm sẽ chờ live HP proof.");
         MonsterRule rule{};
         rule.name = monster.name;
         rule.resID = (monster.validMask & MonsterValidTemplate) ? monster.resID : 0;
@@ -986,6 +1003,9 @@
             observation.dead = record.dead != 0;
             observation.positionValid = (record.validMask & MonsterValidPosition) != 0;
             observation.name = record.name;
+            observation.verifiedMonster = (record.validMask & MonsterValidClassProof) != 0;
+            observation.liveVitalsValid = (record.validMask & MonsterValidLiveVitals) != 0 &&
+                                          (record.validMask & MonsterValidVitals) != 0;
             observations.push_back(std::move(observation));
         }
         const std::vector<KillEvent> events = dungeonRuntime_.deathTracker.Observe(

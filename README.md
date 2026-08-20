@@ -1,15 +1,15 @@
-# Thần Long Item Consolidator v0.6
+# Thần Long Item Consolidator v0.6.1
 
-Direct base: exact v0.5 source. v0.6 adds the `AUTO PHÓ BẢN` tab immediately before `GIỚI THIỆU`; the original AUTO/World Flow/Sell/Trade/Rotation behavior remains in its old tab.
+Direct base: v0.6 AUTO PHÓ BẢN. v0.6.1 corrects the entity boundary: the AutoBuff player scanner remains a separate donor, while dungeon scanning accepts only objects whose runtime class chain contains the exact class `GMonster`.
 
 ## AUTO PHÓ BẢN
 
 - One active account and one dungeon profile at a time.
 - Configurable NPC `ResID`, gathering map/position, expected dungeon MapID, entry/exit real-click sequences, loop mode and an ordered list of stages.
 - Every stage has MapID, X/Y, tolerance, required kill count, filter group, optional count radius, timeout and BOSS marker.
-- Live scanner lists dynamic RoleID, stable ResID when exposed, Name, HP/MaxHP, death state, position and runtime class/type.
+- Live monster scanner excludes GRole-only players, NPCs, pets and other sprite families before reading/counting. It lists only exact `GMonster` class-chain matches with dynamic RoleID, stable ResID when exposed, Name, live HP/MaxHP, death state, position and runtime class/type.
 - A scanned monster can be saved into an enabled filter group. ResID is preferred; exact name is the fallback only when the client does not expose ResID.
-- Kill counting is `seen alive -> HP=0/dead`, deduplicated per dynamic RoleID/life. A first-seen corpse, repeated corpse scan, or disappearance from AOI is never counted. Seeing the same RoleID alive after a death rearms one new life.
+- Kill counting additionally requires `GMonster class proof + live-vitals proof`, then applies `seen alive -> HP=0/dead`, deduplicated per dynamic RoleID/life. A player can never arm the counter even if its RoleID/name/HP happens to match a saved rule.
 - State machine: travel NPC -> `ClickNPC(ResID)` -> entry clicks -> prove dungeon MapID -> travel stage -> prove AutoFight ON -> scan/count -> prove AutoFight OFF -> next stage -> exit clicks -> prove map exit -> optional next loop.
 - Timeouts are errors, never success evidence.
 
@@ -23,7 +23,7 @@ Starting AUTO PHÓ BẢN while AUTO TRAIN is active asks to stop every running A
 
 The Windows x64 workflow runs:
 
-1. `tools/verify_v06_logic.py`
+1. `tools/verify_v061_logic.py`
 2. Release EXE/DLL build
 3. route, rotation, trade-coordinator and dungeon death-counter tests
 

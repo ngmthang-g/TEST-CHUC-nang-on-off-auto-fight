@@ -19,6 +19,8 @@ struct MonsterObservation {
     bool dead = false;
     bool positionValid = false;
     std::wstring name;
+    bool verifiedMonster = false;  // Exact GMonster class-chain proof from the bridge.
+    bool liveVitalsValid = false;  // Live HP/MaxHP proof, never static Monsters config.
 };
 
 struct MonsterRule {
@@ -91,7 +93,8 @@ public:
                                    std::int32_t radius = 0) {
         std::vector<KillEvent> events;
         for (const MonsterObservation& monster : scan) {
-            if (monster.roleID <= 0 || monster.maxHP <= 0 || monster.hp < 0 ||
+            if (!monster.verifiedMonster || !monster.liveVitalsValid ||
+                monster.roleID <= 0 || monster.maxHP <= 0 || monster.hp < 0 ||
                 monster.hp > monster.maxHP ||
                 !InCountRadius(monster, centerX, centerY, radius)) {
                 continue;

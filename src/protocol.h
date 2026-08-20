@@ -8,7 +8,7 @@ namespace cleanroute {
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
 // Protocol cleanup: remove unused vitals/moving/confirm-ui snapshot baggage,
 // remove unused ClickAt command and response metadata. Both controller + bridge ship together.
-constexpr std::uint32_t kProtocolVersion = 0x00010600u;
+constexpr std::uint32_t kProtocolVersion = 0x00010601u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 
@@ -33,6 +33,18 @@ enum MonsterValid : std::uint32_t {
     MonsterValidPosition = 1u << 4,
     MonsterValidType     = 1u << 5,
     MonsterValidName     = 1u << 6,
+    // The runtime class or one of its parents is exactly GMonster. A GRole/player
+    // object must never set this bit or enter the dungeon death counter.
+    MonsterValidClassProof = 1u << 7,
+    // Current HP/MaxHP came from a live GMonster getter (semantic first, guarded
+    // GRole-subclass RVA fallback second), not from static Monsters config.
+    MonsterValidLiveVitals = 1u << 8,
+};
+
+enum class MonsterHpSource : std::int32_t {
+    None = 0,
+    SemanticGetter = 1,
+    GuardedGRoleSubclassRva = 2,
 };
 
 struct MonsterRecord {
@@ -45,6 +57,7 @@ struct MonsterRecord {
     std::int32_t dead = 0;
     std::int32_t x = 0;
     std::int32_t y = 0;
+    std::int32_t hpSource = static_cast<std::int32_t>(MonsterHpSource::None);
     wchar_t name[64]{};
     wchar_t className[40]{};
 };
@@ -89,6 +102,9 @@ struct Response {
     Snapshot snapshot{};
     std::uint32_t monsterCount = 0;
     std::uint32_t scannedEntries = 0;
+    std::uint32_t excludedPlayerRoles = 0;
+    std::uint32_t excludedOtherSprites = 0;
+    std::uint32_t monsterHpReadFailures = 0;
     std::int32_t monsterTruncated = 0;
     MonsterRecord monsters[kMaxMonsterRecords]{};
     wchar_t detail[512]{};

@@ -1,6 +1,15 @@
-# PROJECT KNOWLEDGE — v0.6 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1 CURRENT
 
-## v0.6 AUTO PHÓ BẢN invariants
+## v0.6.1 strict monster correction
+
+- AutoBuff scans nearby player `GRole` objects. It is a donor for safe ObjectManager traversal only; it is not a monster identity source.
+- Dungeon scanning accepts an object only when its actual runtime class or a parent class is exactly `GMonster`. Substring matching such as `Role`/`Monster` is prohibited.
+- GRole-only players, NPCs, pets and other sprites are excluded before they reach the dungeon record list or death tracker.
+- The death tracker independently requires `MonsterValidClassProof` and `MonsterValidLiveVitals`; this second barrier prevents a UI/protocol regression from counting a person.
+- Live HP uses semantic `get_HP/get_MaxHP` first. The frozen GRole donor RVA is allowed only when the accepted GMonster also proves a `GRole` base class.
+- Static Monsters data may interpret ResID but never supplies current HP or death proof.
+
+## v0.6 AUTO PHÓ BẢN invariants retained
 
 - Tabs are `AUTO`, `AUTO PHÓ BẢN`, `GIỚI THIỆU`. AUTO TRAIN and AUTO PHÓ BẢN are mutually exclusive and require an explicit user confirmation before the other mode is stopped.
 - NPC selection uses `LuaSystemAPI_Game.ClickNPC(int)` with **GNPC ResID**, never dynamic RoleID.
@@ -9,8 +18,8 @@
 - Stage completion requires the configured counter. A timeout, scan failure, map mismatch, character death or unreadable authoritative state stops the workflow as an error.
 - Every movement action first proves AutoFight OFF. Every fight stage proves AutoFight ON; each stage transition proves it OFF again.
 - `StartAutoFight(Train=1/None=0)` uses the frozen semantic `AutoFight_Main` donor only after PE/signature and Unity-main-thread proof. A command return is not success; the next `Snapshot.autoFight` is authoritative.
-- Nearby scanner runs inside the existing WH_GETMESSAGE bridge on the game message thread. It does not use CreateRemoteThread, WriteProcessMemory or external pointer retention.
-- Build/CI status and live runtime status are separate. v0.6 remains runtime-untested until the checklist in `docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md` is completed.
+- Nearby monster scanner runs inside the existing WH_GETMESSAGE bridge on the game message thread. It does not use CreateRemoteThread, WriteProcessMemory or external pointer retention.
+- Build/CI status and live runtime status are separate. v0.6.1 remains runtime-untested until the checklist in `docs/AUTO_DUNGEON_RUNTIME_TEST_PLAN.md` is completed.
 
 ## User rules
 - Version sequence: 0.3, 0.4, ..., 0.9, 1.0, 1.1, ..., 1.9, 2.0...

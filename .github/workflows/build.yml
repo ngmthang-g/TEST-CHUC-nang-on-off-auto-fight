@@ -1,4 +1,4 @@
-name: build-item-consolidator-v0.6
+name: build-item-consolidator-v0.6.1
 
 on:
   push:
@@ -10,8 +10,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify v0.6 dungeon scope
-        run: python tools/verify_v06_logic.py
+      - name: Verify v0.6.1 strict monster scope
+        run: python tools/verify_v061_logic.py
       - name: Configure x64
         run: cmake -S . -B build -A x64
       - name: Build Release
@@ -28,12 +28,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force stage | Out-Null
-          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.exe
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.exe
           Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
           Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,BUILD_STATUS.md,TOOL_LOGIC_TABLE.html stage\
           Copy-Item -Recurse docs,features stage\
       - uses: actions/upload-artifact@v4
         with:
-          name: ThanLongItemConsolidator-v0.6-win-x64
+          name: ThanLongItemConsolidator-v0.6.1-win-x64
           path: stage
           if-no-files-found: error

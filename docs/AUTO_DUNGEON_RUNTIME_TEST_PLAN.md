@@ -1,14 +1,16 @@
 # AUTO PHÓ BẢN — live runtime test plan
 
-Do not mark v0.6 runtime-pass from compilation or CI alone. Test on the exact frozen client build with one disposable account and one short profile first.
+Do not mark v0.6.1 runtime-pass from compilation or CI alone. Test on the exact frozen client build with one disposable account and one short profile first.
 
 ## A. Read-only scanner
 
-- Open a stable dungeon map and click `QUÉT QUÁI / HP` five times.
+- Open a stable dungeon map and click `QUÉT MONSTER / HP` five times.
 - Confirm the character does not freeze and scanner response stays below its timeout.
-- Verify visible monster Name, HP/MaxHP and dynamic RoleID against the game.
+- Verify every returned row reports `GMonster✓`; visible players, NPCs and pets must not appear in the monster table.
+- Stand next to another player with visible HP and scan repeatedly; expected returned player rows = 0 and excluded GRole count increases.
+- Verify visible monster Name, live HP/MaxHP and dynamic RoleID against the game. Test both HP sources shown by the UI if present (`HP:SEM` or guarded `HP:RVA`).
 - Verify ResID is non-zero and stable for two separate spawns of the same monster. If it is zero, document the actual class/property before changing offsets.
-- Verify players/NPCs may appear in the catalog but are not counted unless explicitly saved in an enabled rule.
+- Verify a manually persisted rule whose name/ResID resembles a player still cannot arm or increment the counter.
 
 ## B. Death counter
 
